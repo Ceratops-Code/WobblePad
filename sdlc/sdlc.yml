@@ -1,0 +1,18 @@
+version: 4
+kind: ceratops-sdlc
+
+repository:
+  capabilities:
+    python:
+      executable: python
+  actions:
+    validate:
+      requires:
+        capabilities: [python]
+      steps:
+        - run: [python, -B, scripts/repository_checks.py, validate]
+    test:
+      requires:
+        capabilities: [python]
+      steps:
+        - run: [python, -B, scripts/repository_checks.py, test]

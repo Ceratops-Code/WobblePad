@@ -1,0 +1,25 @@
+# Gradle and Android Studio
+.gradle/
+**/build/
+local.properties
+.idea/
+*.iml
+
+# Signing material and local secrets
+*.jks
+*.keystore
+keystore.properties
+
+# Local tools, environments, and generated artifacts
+.tools/
+.venv/
+artifacts/
+captures/
+*.apk
+*.aab
+*.csv
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

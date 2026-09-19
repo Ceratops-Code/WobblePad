@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible WobblePad problem.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include Bluetooth addresses, personal data, signing material, or proprietary app data.
+  - type: input
+    id: android
+    attributes:
+      label: Android device and version
+      placeholder: Samsung SM-X210, Android 16
+    validations:
+      required: true
+  - type: input
+    id: board
+    attributes:
+      label: Board model
+      placeholder: BoBo Wobbly
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Failure stage
+      options:
+        - Scan
+        - BLE connection
+        - Packet stream
+        - Calibration
+        - Shizuku authorization
+        - Virtual controller output
+        - Game compatibility
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Remove Bluetooth addresses and other identifying data before pasting logs.
