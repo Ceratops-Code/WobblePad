@@ -44,8 +44,7 @@
   "exitCode": 0,
   "schema": "wobblepad-android-test-result.v1",
   "source": {
-    "commit": "843827fbef311f8afd74d64377bc21e7cf6ea0c2",
-    "contentSha256": "0b5370824353d101dcd5b6975ee1dfceff1a1f0a5bbff328c125822d957577bc",
+    "contentSha256": "98d77e839277c7444e9a12ed065d0dd6244e50b19f8b36392b9415ec6d35a2fa",
     "versionTag": null
   },
   "status": "passed",
