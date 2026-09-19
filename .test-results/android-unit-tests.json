@@ -1,42 +1,34 @@
 {
   "cases": [
     {
-      "durationSeconds": 0.019,
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.calibratedCardinalPosesReachFullScaleAndExpectedKeys",
       "status": "passed"
     },
     {
-      "durationSeconds": 0.002,
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.calibrationRejectsMissingInvalidAndIndistinctPoses",
       "status": "passed"
     },
     {
-      "durationSeconds": 0.0,
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.diagonalOutputIsClampedRadially",
       "status": "passed"
     },
     {
-      "durationSeconds": 0.0,
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.keyHysteresisPreventsThresholdChatter",
       "status": "passed"
     },
     {
-      "durationSeconds": 0.001,
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.radialDeadZoneSuppressesNoiseAndRescalesMovement",
       "status": "passed"
     },
     {
-      "durationSeconds": 0.0,
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.smoothingUsesControlledTimeWithoutWaiting",
       "status": "passed"
     },
     {
-      "durationSeconds": 0.011,
       "id": "io.github.ceratops_code.wobblepad.PacketParserTest.decodesObservedSignedLittleEndianFrame",
       "status": "passed"
     },
     {
-      "durationSeconds": 0.0,
       "id": "io.github.ceratops_code.wobblepad.PacketParserTest.rejectsWrongLengthAndFrameMarkers",
       "status": "passed"
     }
@@ -52,8 +44,8 @@
   "exitCode": 0,
   "schema": "wobblepad-android-test-result.v1",
   "source": {
-    "commit": "bc79b88e5103b50f2b8ce859e5ba6eb3262ec01a",
-    "contentSha256": "45b757e6ee286f599e97bac6be75bfdd12dfb2cb0b71c88753e26263911c3e02",
+    "commit": "843827fbef311f8afd74d64377bc21e7cf6ea0c2",
+    "contentSha256": "0b5370824353d101dcd5b6975ee1dfceff1a1f0a5bbff328c125822d957577bc",
     "versionTag": null
   },
   "status": "passed",
