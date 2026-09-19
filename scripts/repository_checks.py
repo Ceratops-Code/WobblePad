@@ -138,7 +138,6 @@ def parse_test_results() -> list[dict[str, Any]]:
                 item: dict[str, Any] = {
                     "id": f"{case.get('classname', '')}.{case.get('name', '')}".strip("."),
                     "status": status,
-                    "durationSeconds": float(case.get("time", "0")),
                 }
                 if failure is not None:
                     details = "\n".join(
