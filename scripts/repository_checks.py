@@ -37,6 +37,38 @@ def git_output(*args: str) -> str:
     return completed.stdout.strip() if completed.returncode == 0 else ""
 
 
+def source_is_clean() -> bool:
+    """Return whether non-generated source inputs match HEAD exactly."""
+    tracked = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--quiet",
+            "HEAD",
+            "--",
+            ".",
+            ":(exclude).build/**",
+            ":(exclude).test-results/**",
+        ],
+        cwd=ROOT,
+        check=False,
+    )
+    if tracked.returncode != 0:
+        return False
+
+    untracked = subprocess.check_output(
+        ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+        cwd=ROOT,
+    )
+    return all(
+        raw.decode("utf-8", errors="surrogateescape")
+        .replace("\\", "/")
+        .startswith((".build/", ".test-results/"))
+        for raw in untracked.split(b"\0")
+        if raw
+    )
+
+
 def source_identity() -> dict[str, Any]:
     """Hash all nonignored source inputs while excluding generated records."""
     listed = subprocess.check_output(
@@ -64,19 +96,9 @@ def source_identity() -> dict[str, Any]:
         digest.update(content)
         digest.update(b"\0")
 
-    commit = git_output(
-        "log",
-        "-1",
-        "--format=%H",
-        "--",
-        ".",
-        ":(exclude).build/**",
-        ":(exclude).test-results/**",
-    )
-    tags = git_output("tag", "--points-at", commit).splitlines() if commit else []
+    tags = git_output("tag", "--points-at", "HEAD").splitlines() if source_is_clean() else []
     return {
         "contentSha256": digest.hexdigest(),
-        "commit": commit or None,
         "versionTag": sorted(tags)[0] if tags else None,
     }
 

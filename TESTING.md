@@ -36,8 +36,8 @@ Validation records the debug APK's path, length, and SHA-256 digest in
 `.build/android-debug.json`. Tests rerun the JVM suite, reject a zero-test run,
 retain each case outcome in `.test-results/android-unit-tests.json`, and print
 the assertion difference for failures. Both records include a digest of every
-nonignored source input and the most recent source-changing commit. An exact Git
-tag is used as the build version only when one exists.
+nonignored source input. An exact Git tag is used as the build version only when
+the source inputs still match the tagged commit.
 
 The helper overwrites `.test-results/evidence/validate.log` and
 `.test-results/evidence/test.log` on the next matching run. Those diagnostic
