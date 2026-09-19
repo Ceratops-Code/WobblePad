@@ -73,22 +73,27 @@ Disconnect nRF Connect, the official app, and other BLE clients before testing.
 
 ## Build
 
-Install JDK 17 and Android SDK Platform 36, then clone the repository. The
-Gradle wrapper downloads the declared Gradle version.
+Install JDK 17, Android SDK Platform 36, Python 3.11 or later, and
+[uv](https://docs.astral.sh/uv/), then clone the repository. The Gradle wrapper
+downloads the declared Gradle version.
 
 On Windows:
 
 ```powershell
-python -B scripts/repository_checks.py validate
-python -B scripts/repository_checks.py test
+uv sync --project scripts --locked
+uv run --locked scripts/validate-repository.py
+uv run --locked scripts/repository_checks.py validate
+uv run --locked scripts/repository_checks.py test
 .\gradlew.bat :app:installDebug
 ```
 
 On Linux or macOS:
 
 ```bash
-python3 -B scripts/repository_checks.py validate
-python3 -B scripts/repository_checks.py test
+uv sync --project scripts --locked
+uv run --locked scripts/validate-repository.py
+uv run --locked scripts/repository_checks.py validate
+uv run --locked scripts/repository_checks.py test
 ./gradlew :app:installDebug
 ```
 
@@ -148,7 +153,7 @@ failure, and does not expose that service to other apps. See
 
 ```text
 app/src/main/       Android application, BLE client, calibration, and UHID bridge
-scripts/            Shared local and CI validation entry point
+scripts/            Locked repository validation and Android check entry points
 sdlc/sdlc.yml       Ceratops repository validation contract
 .github/            CI, dependency updates, and contribution templates
 ```

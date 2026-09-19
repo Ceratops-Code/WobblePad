@@ -15,16 +15,20 @@ Thank you for helping improve WobblePad.
 
 ## Development
 
-Use JDK 17 and Android SDK Platform 36. Run both repository commands before
-opening a pull request:
+Use JDK 17, Android SDK Platform 36, Python 3.11 or later, and uv. Run the
+locked repository validation and both Android operations before opening a pull
+request:
 
 ```text
-python -B scripts/repository_checks.py validate
-python -B scripts/repository_checks.py test
+uv sync --project scripts --locked
+uv run --locked scripts/validate-repository.py
+uv run --locked scripts/repository_checks.py validate
+uv run --locked scripts/repository_checks.py test
 ```
 
-CI calls the same helper. Keep deterministic build or validation behavior in
-that helper rather than duplicating task lists in workflow YAML.
+CI resolves these operations through `sdlc/sdlc.yml`. Keep deterministic
+Android task selection in `scripts/repository_checks.py` instead of duplicating
+task lists in workflow YAML.
 
 Hardware changes should describe the exact board and Android model tested, the
 duration or packet count, and any part that could not be verified. Sanitize all

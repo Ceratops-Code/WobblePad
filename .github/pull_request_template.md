@@ -4,8 +4,9 @@ Describe the behavior change and why it is needed.
 
 ## Validation
 
-- [ ] `python -B scripts/repository_checks.py validate`
-- [ ] `python -B scripts/repository_checks.py test`
+- [ ] `uv run --locked scripts/validate-repository.py`
+- [ ] `uv run --locked scripts/repository_checks.py validate`
+- [ ] `uv run --locked scripts/repository_checks.py test`
 - [ ] Hardware behavior was tested, or the hardware limitation is explained below.
 
 ## Safety and data

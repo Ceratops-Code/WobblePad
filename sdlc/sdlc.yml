@@ -1,18 +1,44 @@
-version: 4
+version: 3
 kind: ceratops-sdlc
-
 repository:
-  capabilities:
+  prerequisites:
     python:
       executable: python
-  actions:
-    validate:
-      requires:
-        capabilities: [python]
+    uv:
+      executable: uv
+  bootstrap:
+    validation:
+      prerequisites:
+        - uv
       steps:
-        - run: [python, -B, scripts/repository_checks.py, validate]
-    test:
-      requires:
-        capabilities: [python]
+        - run:
+            - uv
+            - sync
+            - --project
+            - scripts
+            - --locked
+  validate:
+    repository:
       steps:
-        - run: [python, -B, scripts/repository_checks.py, test]
+        - run:
+            - uv
+            - run
+            - --locked
+            - scripts/validate-repository.py
+    android:
+      steps:
+        - run:
+            - uv
+            - run
+            - --locked
+            - scripts/repository_checks.py
+            - validate
+  tests:
+    android:
+      steps:
+        - run:
+            - uv
+            - run
+            - --locked
+            - scripts/repository_checks.py
+            - test

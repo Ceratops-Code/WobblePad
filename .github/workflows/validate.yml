@@ -38,8 +38,17 @@ jobs:
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Validate
-        run: python -B scripts/repository_checks.py validate
+      - name: Validate and test through SDLC
+        uses: Ceratops-Code/AI-Agent-Skills/skills/ceratops-repo-lifecycle/scripts@56adb83bc11e1ef219d3fd40e6ee602ed7aad069
+        with:
+          repo-root: .
+          evidence-file: ${{ runner.temp }}/sdlc-validation.json
 
-      - name: Test
-        run: python -B scripts/repository_checks.py test
+      - name: Upload validation evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: ignore
+          name: repository-validation-evidence
+          include-hidden-files: true
+          path: ${{ runner.temp }}/sdlc-validation.json

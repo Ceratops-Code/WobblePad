@@ -43,6 +43,11 @@ engineering, interoperability testing, controller emulation, or distribution
 is permitted in every jurisdiction. Nothing in this repository is legal
 advice.
 
+Users should review the manufacturer's current
+[terms and conditions](https://bobo-balance.shop/pages/terms-and-conditions)
+and safety materials for their own device. This project does not interpret,
+replace, or speak for those materials.
+
 ## Experimental software and compatibility
 
 WobblePad is experimental. It may fail to discover or connect to a board,
