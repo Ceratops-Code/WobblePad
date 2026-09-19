@@ -1,0 +1,67 @@
+{
+  "cases": [
+    {
+      "durationSeconds": 0.021,
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.calibratedCardinalPosesReachFullScaleAndExpectedKeys",
+      "status": "passed"
+    },
+    {
+      "durationSeconds": 0.002,
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.calibrationRejectsMissingInvalidAndIndistinctPoses",
+      "status": "passed"
+    },
+    {
+      "durationSeconds": 0.0,
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.diagonalOutputIsClampedRadially",
+      "status": "passed"
+    },
+    {
+      "durationSeconds": 0.0,
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.keyHysteresisPreventsThresholdChatter",
+      "status": "passed"
+    },
+    {
+      "durationSeconds": 0.001,
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.radialDeadZoneSuppressesNoiseAndRescalesMovement",
+      "status": "passed"
+    },
+    {
+      "durationSeconds": 0.0,
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.smoothingUsesControlledTimeWithoutWaiting",
+      "status": "passed"
+    },
+    {
+      "durationSeconds": 0.012,
+      "id": "io.github.ceratops_code.wobblepad.PacketParserTest.decodesObservedSignedLittleEndianFrame",
+      "status": "passed"
+    },
+    {
+      "durationSeconds": 0.0,
+      "id": "io.github.ceratops_code.wobblepad.PacketParserTest.rejectsWrongLengthAndFrameMarkers",
+      "status": "passed"
+    }
+  ],
+  "command": [
+    "gradlew.bat",
+    "--no-daemon",
+    "--rerun-tasks",
+    ":app:testDebugUnitTest"
+  ],
+  "coverageMap": "TESTING.md",
+  "evidence": ".test-results/evidence/test.log",
+  "exitCode": 0,
+  "schema": "wobblepad-android-test-result.v1",
+  "source": {
+    "commit": "5a08b07c7d3654b58b9e21990ac63f977efaaf42",
+    "contentSha256": "d92a54f4f269f4633ac5ca5079b07edc2bdb88f731fa72e501327b1178697ab2",
+    "versionTag": null
+  },
+  "status": "passed",
+  "suite": "android-jvm-unit-tests",
+  "summary": {
+    "failed": 0,
+    "passed": 8,
+    "skipped": 0,
+    "total": 8
+  }
+}
