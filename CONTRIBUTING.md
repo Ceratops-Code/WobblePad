@@ -28,12 +28,16 @@ uv run --locked scripts/repository_checks.py test
 
 CI resolves these operations through `sdlc/sdlc.yml`. Keep deterministic
 Android task selection in `scripts/repository_checks.py` instead of duplicating
-task lists in workflow YAML.
+task lists in workflow YAML. Commit the updated `.build/` and `.test-results/`
+records with the source they qualify; never commit `.test-results/evidence/`.
 
 Hardware changes should describe the exact board and Android model tested, the
 duration or packet count, and any part that could not be verified. Sanitize all
 logs. A green JVM or emulator check does not establish physical BLE or
 system-wide controller compatibility.
+
+Update [TESTING.md](TESTING.md) when supported behavior or its observable test
+changes. A passing test count does not cover a feature absent from that map.
 
 ## Pull requests
 

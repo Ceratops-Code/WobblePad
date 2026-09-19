@@ -7,7 +7,7 @@ import no.nordicsemi.android.ble.BleManager
 import java.util.UUID
 
 /** Nordic owns the GATT queue, discovery and CCCD write. Subscribe once per connection. */
-class BoBoManager(context: Context, private val packet: (ByteArray) -> Unit,
+class BalanceBoardBleManager(context: Context, private val packet: (ByteArray) -> Unit,
     private val battery: (Int) -> Unit, private val failure: (String) -> Unit) : BleManager(context) {
     private var stream: BluetoothGattCharacteristic? = null
     private var level: BluetoothGattCharacteristic? = null
@@ -19,7 +19,7 @@ class BoBoManager(context: Context, private val packet: (ByteArray) -> Unit,
     }
     override fun initialize() {
         setNotificationCallback(stream).with { _, data -> data.value?.let { packet(it.copyOf()) } }
-        enableNotifications(stream).timeout(8000).fail { _, status -> failure("Could not enable BoBo notifications ($status).") }.enqueue()
+        enableNotifications(stream).timeout(8000).fail { _, status -> failure("Could not enable board notifications ($status).") }.enqueue()
         level?.let { value -> readCharacteristic(value).with { _, data ->
             data.value?.firstOrNull()?.let { battery(it.toInt() and 255) }
         }.enqueue() }

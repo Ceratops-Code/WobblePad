@@ -13,14 +13,17 @@ keystore.properties
 # Local tools, environments, and generated artifacts
 .tools/
 .venv/
-artifacts/
-captures/
+/Prototype/
+.artifacts/
+.captures/
 *.apk
 *.aab
 *.csv
 *.log
 
+# Portable result records are tracked; supporting logs are local evidence.
+/.test-results/evidence/
+
 # OS files
 .DS_Store
 Thumbs.db
-/.build/
