@@ -34,7 +34,7 @@ repository:
             - scripts/repository_checks.py
             - validate
   tests:
-    android:
+    android-jvm-unit:
       steps:
         - run:
             - uv

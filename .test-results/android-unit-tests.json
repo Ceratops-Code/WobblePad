@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.calibratedCardinalPosesReachFullScaleAndExpectedKeys",
+      "status": "passed"
+    },
+    {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.calibrationRejectsMissingInvalidAndIndistinctPoses",
+      "status": "passed"
+    },
+    {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.diagonalOutputIsClampedRadially",
+      "status": "passed"
+    },
+    {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.keyHysteresisPreventsThresholdChatter",
+      "status": "passed"
+    },
+    {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.radialDeadZoneSuppressesNoiseAndRescalesMovement",
+      "status": "passed"
+    },
+    {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.smoothingUsesControlledTimeWithoutWaiting",
+      "status": "passed"
+    },
+    {
+      "id": "io.github.ceratops_code.wobblepad.PacketParserTest.decodesObservedSignedLittleEndianFrame",
+      "status": "passed"
+    },
+    {
+      "id": "io.github.ceratops_code.wobblepad.PacketParserTest.rejectsWrongLengthAndFrameMarkers",
+      "status": "passed"
+    }
+  ],
+  "command": [
+    "gradlew.bat",
+    "--no-daemon",
+    "--rerun-tasks",
+    ":app:testDebugUnitTest"
+  ],
+  "coverageMap": "TESTING.md",
+  "evidence": ".test-results/evidence/test.log",
+  "exitCode": 0,
+  "schema": "wobblepad-android-test-result.v1",
+  "source": {
+    "contentSha256": "98d77e839277c7444e9a12ed065d0dd6244e50b19f8b36392b9415ec6d35a2fa",
+    "versionTag": null
+  },
+  "status": "passed",
+  "suite": "android-jvm-unit-tests",
+  "summary": {
+    "failed": 0,
+    "passed": 8,
+    "skipped": 0,
+    "total": 8
+  }
+}

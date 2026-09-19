@@ -40,8 +40,8 @@ class BridgeService : Service() {
     private lateinit var calibration: CalibrationStore
     private lateinit var controller: ControllerLink
     private val adapter get() = getSystemService(BluetoothManager::class.java).adapter
-    private var manager: BoBoManager? = null
-    private val retiringClients = mutableSetOf<BoBoManager>()
+    private var manager: BalanceBoardBleManager? = null
+    private val retiringClients = mutableSetOf<BalanceBoardBleManager>()
     private var scanner: BluetoothLeScanner? = null
     private var generation = 0
     private var reconnects = 0
@@ -101,7 +101,7 @@ class BridgeService : Service() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             if (!state.scanning || !permissions()) return
             val name = result.scanRecord?.deviceName ?: result.device.name.orEmpty()
-            val service = result.scanRecord?.serviceUuids?.any { it.uuid == BoBoManager.SERVICE } == true
+            val service = result.scanRecord?.serviceUuids?.any { it.uuid == BalanceBoardBleManager.SERVICE } == true
             if (!name.contains("BoBo", true) && !service) return
             if (state.boards.none { it.address == result.device.address }) {
                 state = state.copy(boards = state.boards + Board(result.device.address, name.ifBlank { "BoBo" }))
@@ -147,7 +147,7 @@ class BridgeService : Service() {
         lastPacket = 0; readyAt = 0; stablePackets = 0; packetTimes.clear()
         message(if (reconnects == 0) "Connecting to BoBo…" else "Reconnecting to BoBo ($reconnects/3)…")
         try {
-            val client = BoBoManager(this, { bytes -> if (token == generation) onPacket(bytes) },
+            val client = BalanceBoardBleManager(this, { bytes -> if (token == generation) onPacket(bytes) },
                 { level -> if (token == generation) { state = state.copy(battery = level); publish() } },
                 { error -> if (token == generation) recover(error) })
             manager = client
