@@ -1,7 +1,7 @@
 {
   "cases": [
     {
-      "durationSeconds": 0.021,
+      "durationSeconds": 0.019,
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.calibratedCardinalPosesReachFullScaleAndExpectedKeys",
       "status": "passed"
     },
@@ -31,7 +31,7 @@
       "status": "passed"
     },
     {
-      "durationSeconds": 0.012,
+      "durationSeconds": 0.011,
       "id": "io.github.ceratops_code.wobblepad.PacketParserTest.decodesObservedSignedLittleEndianFrame",
       "status": "passed"
     },
@@ -52,8 +52,8 @@
   "exitCode": 0,
   "schema": "wobblepad-android-test-result.v1",
   "source": {
-    "commit": "5a08b07c7d3654b58b9e21990ac63f977efaaf42",
-    "contentSha256": "d92a54f4f269f4633ac5ca5079b07edc2bdb88f731fa72e501327b1178697ab2",
+    "commit": "bc79b88e5103b50f2b8ce859e5ba6eb3262ec01a",
+    "contentSha256": "45b757e6ee286f599e97bac6be75bfdd12dfb2cb0b71c88753e26263911c3e02",
     "versionTag": null
   },
   "status": "passed",
