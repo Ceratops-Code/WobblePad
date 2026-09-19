@@ -32,12 +32,14 @@ uv run --locked scripts/repository_checks.py validate
 uv run --locked scripts/repository_checks.py test
 ```
 
-Validation records the debug APK's path, length, and SHA-256 digest in
-`.build/android-debug.json`. Tests rerun the JVM suite, reject a zero-test run,
-retain each case outcome in `.test-results/android-unit-tests.json`, and print
-the assertion difference for failures. Both records include a digest of every
-nonignored source input. An exact Git tag is used as the build version only when
-the source inputs still match the tagged commit.
+Validation records the debug APK's path and a canonical SHA-256 digest of its
+ZIP-entry names and contents in `.build/android-debug.json`; entry ordering and
+signing-block layout do not change that digest. Tests rerun the JVM suite,
+reject a zero-test run, retain each case outcome in
+`.test-results/android-unit-tests.json`, and print the assertion difference for
+failures. Both records include a digest of every nonignored source input. An
+exact Git tag is used as the build version only when the source inputs still
+match the tagged commit.
 
 The helper overwrites `.test-results/evidence/validate.log` and
 `.test-results/evidence/test.log` on the next matching run. Those diagnostic

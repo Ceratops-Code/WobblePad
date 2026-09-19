@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -104,12 +105,25 @@ def source_identity() -> dict[str, Any]:
 
 
 def fingerprint(path: Path) -> dict[str, Any]:
-    with path.open("rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    """Identify APK payload content independently of ZIP entry ordering."""
+    digest = hashlib.sha256()
+    with zipfile.ZipFile(path) as archive:
+        entries = sorted(
+            archive.infolist(),
+            key=lambda entry: (entry.filename, entry.CRC, entry.file_size),
+        )
+        for entry in entries:
+            content = archive.read(entry)
+            digest.update(entry.filename.encode("utf-8", errors="surrogateescape"))
+            digest.update(b"\0")
+            digest.update(str(len(content)).encode("ascii"))
+            digest.update(b"\0")
+            digest.update(content)
+            digest.update(b"\0")
     return {
         "path": path.relative_to(ROOT).as_posix(),
-        "length": path.stat().st_size,
-        "sha256": digest,
+        "entryCount": len(entries),
+        "contentSha256": digest.hexdigest(),
     }
 
 
@@ -177,7 +191,7 @@ def record_build(action: str, exit_code: int, arguments: list[str], evidence: Pa
     write_json(
         BUILD_RECORD,
         {
-            "schema": "wobblepad-android-build-result.v1",
+            "schema": "wobblepad-android-build-result.v2",
             "action": action,
             "status": "passed" if exit_code == 0 else "failed",
             "exitCode": exit_code,
