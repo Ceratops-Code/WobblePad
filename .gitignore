@@ -21,7 +21,7 @@ keystore.properties
 *.csv
 *.log
 
-# Portable result records are tracked; supporting logs are local evidence.
+# The portable test result is tracked; supporting logs are local evidence.
 /.test-results/evidence/
 
 # OS files

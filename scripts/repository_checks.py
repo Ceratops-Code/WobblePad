@@ -1,8 +1,8 @@
-"""Run Android checks and retain compact results for the exact tested source.
+"""Run Android validation or tests and retain compact test results.
 
 CI and local validation use this entry point so Gradle task selection cannot
-drift. The helper owns its generated records and overwrites its ignored evidence
-log on the next run; Gradle owns the ignored app/build outputs.
+drift. The helper owns its generated test record and overwrites its ignored
+evidence log on the next run; Gradle owns the ignored app/build outputs.
 """
 
 from __future__ import annotations
@@ -15,12 +15,10 @@ import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
-import zipfile
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-BUILD_RECORD = ROOT / ".build" / "android-debug.json"
 TEST_RECORD = ROOT / ".test-results" / "android-unit-tests.json"
 EVIDENCE_ROOT = ROOT / ".test-results" / "evidence"
 TEST_REPORT_ROOT = ROOT / "app" / "build" / "test-results" / "testDebugUnitTest"
@@ -104,29 +102,6 @@ def source_identity() -> dict[str, Any]:
     }
 
 
-def fingerprint(path: Path) -> dict[str, Any]:
-    """Identify APK payload content independently of ZIP entry ordering."""
-    digest = hashlib.sha256()
-    with zipfile.ZipFile(path) as archive:
-        entries = sorted(
-            archive.infolist(),
-            key=lambda entry: (entry.filename, entry.CRC, entry.file_size),
-        )
-        for entry in entries:
-            content = archive.read(entry)
-            digest.update(entry.filename.encode("utf-8", errors="surrogateescape"))
-            digest.update(b"\0")
-            digest.update(str(len(content)).encode("ascii"))
-            digest.update(b"\0")
-            digest.update(content)
-            digest.update(b"\0")
-    return {
-        "path": path.relative_to(ROOT).as_posix(),
-        "entryCount": len(entries),
-        "contentSha256": digest.hexdigest(),
-    }
-
-
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp")
@@ -186,23 +161,6 @@ def parse_test_results() -> list[dict[str, Any]]:
     return sorted(cases, key=lambda item: str(item["id"]))
 
 
-def record_build(action: str, exit_code: int, arguments: list[str], evidence: Path) -> None:
-    artifact = ROOT / "app" / "build" / "outputs" / "apk" / "debug" / "app-debug.apk"
-    write_json(
-        BUILD_RECORD,
-        {
-            "schema": "wobblepad-android-build-result.v2",
-            "action": action,
-            "status": "passed" if exit_code == 0 else "failed",
-            "exitCode": exit_code,
-            "source": source_identity(),
-            "command": [Path(arguments[0]).name, *arguments[1:]],
-            "artifact": fingerprint(artifact) if exit_code == 0 and artifact.is_file() else None,
-            "evidence": evidence.relative_to(ROOT).as_posix(),
-        },
-    )
-
-
 def record_tests(exit_code: int, arguments: list[str], evidence: Path) -> int:
     cases = parse_test_results()
     if exit_code == 0 and not cases:
@@ -249,7 +207,6 @@ def main() -> int:
     exit_code, arguments, evidence = run_gradle(args.action, wrapper)
     if args.action == "test":
         return record_tests(exit_code, arguments, evidence)
-    record_build(args.action, exit_code, arguments, evidence)
     return exit_code
 
 

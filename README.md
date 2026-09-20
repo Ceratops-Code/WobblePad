@@ -100,11 +100,11 @@ uv run --locked scripts/repository_checks.py test
 Android Studio can also open the repository root directly. Debug builds use the
 standard per-machine Android debug key; no signing key is stored here.
 
-The validation helper writes portable build metadata to `.build/` and JVM test
-results to `.test-results/`. Those records are bound to a source-content digest
-and, when available, its immutable Git tag. Supporting logs stay under the
-ignored `.test-results/evidence/` directory. See [TESTING.md](TESTING.md) for
-the feature-to-observation map and the hardware checks that remain manual.
+The Android test helper writes JVM test results to `.test-results/`, bound to a
+source-content digest and, when available, its immutable Git tag. Supporting
+logs stay under the ignored `.test-results/evidence/` directory. See
+[TESTING.md](TESTING.md) for the feature-to-observation map and the hardware
+checks that remain manual.
 
 ## Use
 
@@ -162,7 +162,6 @@ app/src/main/       Android application, BLE client, calibration, and UHID bridg
 app/src/test/       JVM packet-parser and joystick-mapper tests
 scripts/            Locked repository validation and Android check entry points
 sdlc/sdlc.yml       Ceratops repository validation contract
-.build/             Latest portable debug-build result
 .test-results/      Latest portable automated-test results
 .github/            CI, dependency updates, and contribution templates
 ```
