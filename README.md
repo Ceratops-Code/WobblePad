@@ -81,28 +81,30 @@ On Windows:
 
 ```powershell
 uv sync --project scripts --locked
-uv run --locked scripts/validate-repository.py
-uv run --locked scripts/repository_checks.py validate
-uv run --locked scripts/repository_checks.py test
-.\gradlew.bat :app:installDebug
+uv run --project scripts --locked python scripts/validate-repository.py
+uv run --project scripts --locked python scripts/run-tests.py
+uv run --project scripts --locked python scripts/build-android.py
+uv run --project scripts --locked python scripts/deploy-android.py
 ```
 
 On Linux or macOS:
 
 ```bash
 uv sync --project scripts --locked
-uv run --locked scripts/validate-repository.py
-uv run --locked scripts/repository_checks.py validate
-uv run --locked scripts/repository_checks.py test
-./gradlew :app:installDebug
+uv run --project scripts --locked python scripts/validate-repository.py
+uv run --project scripts --locked python scripts/run-tests.py
+uv run --project scripts --locked python scripts/build-android.py
+uv run --project scripts --locked python scripts/deploy-android.py
 ```
 
 Android Studio can also open the repository root directly. Debug builds use the
 standard per-machine Android debug key; no signing key is stored here.
 
-The Android test helper writes JVM test results to `.test-results/`, bound to a
-source-content digest and, when available, its immutable Git tag. Supporting
-logs stay under the ignored `.test-results/evidence/` directory. See
+Validation and test helpers write portable results to `.test-results/`, bound
+to a source-content digest and the latest commit that changed those source
+inputs. Supporting logs stay under the
+ignored `.test-results/evidence/` directory. Build and deployment emit bounded
+JSON to standard output; the APK remains in Gradle's ignored output directory. See
 [TESTING.md](TESTING.md) for the feature-to-observation map and the hardware
 checks that remain manual.
 
@@ -160,9 +162,9 @@ failure, and does not expose that service to other apps. See
 ```text
 app/src/main/       Android application, BLE client, calibration, and UHID bridge
 app/src/test/       JVM packet-parser and joystick-mapper tests
-scripts/            Locked repository validation and Android check entry points
-sdlc/sdlc.yml       Ceratops repository validation contract
-.test-results/      Latest portable automated-test results
+scripts/            Validation, test, APK build, and Android deployment entry points
+sdlc/sdlc.yml       Ceratops repository and deliverable contract
+.test-results/      Latest portable validation and automated-test results
 .github/            CI, dependency updates, and contribution templates
 ```
 

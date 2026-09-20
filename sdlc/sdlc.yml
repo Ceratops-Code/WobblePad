@@ -1,44 +1,93 @@
-version: 3
+version: 4
 kind: ceratops-sdlc
 repository:
-  prerequisites:
-    python:
-      executable: python
+  capabilities:
     uv:
       executable: uv
-  bootstrap:
-    validation:
-      prerequisites:
-        - uv
+    java:
+      executable: java
+      version: "17"
+    adb:
+      executable: adb
+  actions:
+    validate:
+      requires:
+        capabilities:
+          - uv
+          - java
       steps:
         - run:
             - uv
-            - sync
+            - run
             - --project
             - scripts
             - --locked
-  validate:
-    repository:
-      steps:
-        - run:
-            - uv
-            - run
-            - --locked
+            - python
             - scripts/validate-repository.py
-    android:
+    test:
+      requires:
+        capabilities:
+          - uv
+          - java
       steps:
         - run:
             - uv
             - run
+            - --project
+            - scripts
             - --locked
-            - scripts/repository_checks.py
-            - validate
-  tests:
-    android-jvm-unit:
-      steps:
-        - run:
-            - uv
-            - run
-            - --locked
-            - scripts/repository_checks.py
-            - test
+            - python
+            - scripts/run-tests.py
+deliverables:
+  packages:
+    wobblepad-apk:
+      source: app
+      prerequisites: []
+      artifact:
+        type: android-apk
+        output-directory: app/build/outputs/apk/debug
+        filename-pattern: app-debug.apk
+      actions:
+        build:
+          requires:
+            capabilities:
+              - uv
+              - java
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - python
+                - scripts/build-android.py
+  apps:
+    wobblepad-android:
+      source: app
+      manifest: app/src/main/AndroidManifest.xml
+      prerequisites:
+        - wobblepad-apk
+      actions:
+        validate:
+          requires:
+            capabilities: []
+          no-op: Repository validation and tests cover the Android app source.
+        install:
+          requires:
+            capabilities:
+              - uv
+              - adb
+          parameters:
+            - serial
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - python
+                - scripts/deploy-android.py
+                - --serial
+                - "{serial}"

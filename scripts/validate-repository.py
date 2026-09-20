@@ -10,12 +10,18 @@ and is removed after success. Test commands belong in SDLC tests operations.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import pathlib
 import subprocess
 import sys
 import tempfile
+from typing import Any
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+RESULT_FILE = ROOT / ".test-results" / "validation.json"
+DEFAULT_EVIDENCE_FILE = ROOT / ".test-results" / "evidence" / "validation.log"
 
 CHECK_DEFINITIONS = [{'id': 'ruff',
   'command': ['{python}',
@@ -34,8 +40,140 @@ CHECK_DEFINITIONS = [{'id': 'ruff',
               '--config-file',
               'scripts/pyproject.toml'],
   'cwd': '.',
+  'exclusive': False},
+ {'id': 'android-lint',
+  'command': ['{gradle}', '--no-daemon', ':app:lintDebug'],
+  'cwd': '.',
   'exclusive': False}]
 COMMAND_NOT_FOUND_EXIT_CODE = 127
+
+
+def git_output(*arguments: str) -> str:
+    """Return one successful Git query without exposing command failures."""
+
+    completed = subprocess.run(
+        ["git", *arguments], cwd=ROOT, capture_output=True, text=True, check=False
+    )
+    return completed.stdout.strip() if completed.returncode == 0 else ""
+
+
+def source_matches_head() -> bool:
+    """Return whether only generated result stores differ from ``HEAD``."""
+
+    tracked = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--quiet",
+            "HEAD",
+            "--",
+            ".",
+            ":(exclude).build/**",
+            ":(exclude).test-results/**",
+        ],
+        cwd=ROOT,
+        check=False,
+    )
+    if tracked.returncode != 0:
+        return False
+    untracked = subprocess.check_output(
+        ["git", "ls-files", "--others", "--exclude-standard", "-z"], cwd=ROOT
+    )
+    return all(
+        raw.decode("utf-8", errors="surrogateescape")
+        .replace("\\", "/")
+        .startswith((".build/", ".test-results/"))
+        for raw in untracked.split(b"\0")
+        if raw
+    )
+
+
+def source_identity() -> dict[str, Any]:
+    """Hash every nonignored source input, excluding generated result stores."""
+
+    listed = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        cwd=ROOT,
+    )
+    paths: list[tuple[str, pathlib.Path]] = []
+    for raw in listed.split(b"\0"):
+        if not raw:
+            continue
+        relative = raw.decode("utf-8", errors="surrogateescape").replace("\\", "/")
+        if relative.startswith((".build/", ".test-results/")):
+            continue
+        path = ROOT / relative
+        if path.is_file():
+            paths.append((relative, path))
+
+    digest = hashlib.sha256()
+    for relative, path in sorted(paths):
+        content = path.read_bytes()
+        digest.update(relative.encode("utf-8", errors="surrogateescape"))
+        digest.update(b"\0")
+        digest.update(str(len(content)).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(content)
+        digest.update(b"\0")
+    return {
+        "contentSha256": digest.hexdigest(),
+        "sourceCommit": (
+            git_output(
+                "log",
+                "-1",
+                "--format=%H",
+                "--",
+                ".",
+                ":(exclude).build/**",
+                ":(exclude).test-results/**",
+            )
+            or None
+        )
+        if source_matches_head()
+        else None,
+    }
+
+
+def write_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
+    """Atomically replace one deterministic result and remove its temp file."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    try:
+        with temporary.open("w", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def portable_evidence_path(path: pathlib.Path | None) -> str | None:
+    """Return a repository-relative evidence path or omit external diagnostics."""
+
+    if path is None:
+        return None
+    try:
+        return path.resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return None
+
+
+def validation_record(
+    status: str,
+    source: dict[str, Any],
+    checks: list[dict[str, Any]],
+    evidence_file: pathlib.Path | None,
+) -> dict[str, Any]:
+    """Build one portable repository-validation result."""
+
+    return {
+        "schema": "ceratops-repository-stage-result.v1",
+        "stage": "validation",
+        "status": status,
+        "source": source,
+        "checks": checks,
+        "evidence": portable_evidence_path(evidence_file),
+    }
 
 
 def command(definition: dict[str, object], temporary_root: pathlib.Path) -> list[str]:
@@ -50,6 +188,7 @@ def command(definition: dict[str, object], temporary_root: pathlib.Path) -> list
         "{pnpm}": pnpm,
         "{pwsh}": pwsh,
         "{temp}": str(temporary_root),
+        "{gradle}": str(ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew")),
     }
     raw_command = definition["command"]
     if not isinstance(raw_command, list):
@@ -136,11 +275,36 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--evidence-file", type=pathlib.Path)
     args = parser.parse_args()
-    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    repo_root = ROOT
     evidence_file = (
         args.evidence_file.expanduser().resolve()
         if args.evidence_file
-        else repo_root / ".build" / "deploy-validation" / "repository-validation.log"
+        else DEFAULT_EVIDENCE_FILE
+    )
+    pending_source: dict[str, Any] = {"contentSha256": None, "sourceCommit": None}
+    pending_checks = [
+        {"id": str(definition["id"]), "status": "pending"}
+        for definition in CHECK_DEFINITIONS
+    ]
+    write_json(
+        RESULT_FILE,
+        validation_record("running", pending_source, pending_checks, evidence_file),
+    )
+    try:
+        source = source_identity()
+    except (OSError, subprocess.SubprocessError) as exc:
+        checks = [{"id": "source-identity", "status": "blocked"}]
+        write_json(
+            RESULT_FILE,
+            validation_record("blocked", pending_source, checks, evidence_file),
+        )
+        print(f"Could not identify repository source: {exc}", file=sys.stderr)
+        return 2
+
+    completed_checks: list[dict[str, Any]] = []
+    write_json(
+        RESULT_FILE,
+        validation_record("running", source, pending_checks, evidence_file),
     )
     with tempfile.TemporaryDirectory(prefix="repository-validation-") as temporary:
         temporary_root = pathlib.Path(temporary)
@@ -172,6 +336,9 @@ def main() -> int:
                     f"{type(exc).__name__}: {exc}",
                 )
             if result.returncode == 0:
+                completed_checks.append(
+                    {"id": str(definition["id"]), "status": "passed", "exitCode": 0}
+                )
                 continue
             evidence_file.parent.mkdir(parents=True, exist_ok=True)
             partial = evidence_file.with_name(f".{evidence_file.name}.tmp")
@@ -195,12 +362,30 @@ def main() -> int:
                 newline="\n",
             )
             partial.replace(evidence_file)
+            failed_status = (
+                "blocked"
+                if result.returncode == COMMAND_NOT_FOUND_EXIT_CODE
+                else "failed"
+            )
+            completed_checks.append(
+                {
+                    "id": str(definition["id"]),
+                    "status": failed_status,
+                    "exitCode": result.returncode,
+                }
+            )
+            write_json(
+                RESULT_FILE,
+                validation_record(
+                    failed_status, source, completed_checks, evidence_file
+                ),
+            )
             print(
                 json.dumps(
                     {
-                        "check": definition["id"],
-                        "exit_code": result.returncode,
-                        "evidence_file": str(evidence_file),
+                        "schema": "ceratops-repository-stage-result.v1",
+                        "stage": "validation",
+                        "status": failed_status,
                     },
                     separators=(",", ":"),
                 )
@@ -212,6 +397,13 @@ def main() -> int:
             prune_default_parent=args.evidence_file is None,
         )
     except OSError as exc:
+        completed_checks.append(
+            {"id": "evidence-cleanup", "status": "failed", "exitCode": 1}
+        )
+        write_json(
+            RESULT_FILE,
+            validation_record("failed", source, completed_checks, evidence_file),
+        )
         print(
             json.dumps(
                 {
@@ -224,7 +416,11 @@ def main() -> int:
             )
         )
         return 1
-    print("OK")
+    final_record = validation_record(
+        "passed", source, completed_checks, None
+    )
+    write_json(RESULT_FILE, final_record)
+    print(json.dumps(final_record, separators=(",", ":")))
     return 0
 
 

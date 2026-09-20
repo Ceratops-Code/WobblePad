@@ -1,9 +1,10 @@
 # Testing
 
 WobblePad separates repository validation, automated tests, and delivery. The
-SDLC contract owns the commands, `scripts/repository_checks.py` owns Android
-task selection and result recording, and each result identifies the exact
-source content it exercised.
+SDLC contract owns the commands. `scripts/validate-repository.py` runs repository
+checks and Android lint, while `scripts/run-tests.py` runs repository-script and
+Kotlin/JVM test groups. Each retained result identifies the exact source content
+it exercised.
 
 ## Feature-to-observation map
 
@@ -27,18 +28,30 @@ Run the locked workflow from the repository root:
 
 ```text
 uv sync --project scripts --locked
-uv run --locked scripts/validate-repository.py
-uv run --locked scripts/repository_checks.py validate
-uv run --locked scripts/repository_checks.py test
+uv run --project scripts --locked python scripts/validate-repository.py
+uv run --project scripts --locked python scripts/run-tests.py
 ```
 
-Tests rerun the JVM suite, reject a zero-test run, retain each case outcome in
-`.test-results/android-unit-tests.json`, and print the assertion difference for
-failures. The record includes a digest of every nonignored source input. An
-exact Git tag identifies the tested version only when the source inputs still
-match the tagged commit.
+Validation replaces `.test-results/validation.json`. Tests replace the aggregate
+`.test-results/tests.json` and the group records under `.test-results/groups/`.
+The test runner rejects a zero-test JVM run and retains each case outcome and a
+digest of every nonignored source input. Aggregate group references include the
+SHA-256 digest of the exact group record. `sourceCommit` names the latest commit
+that changed non-result source, so a later commit containing only refreshed
+records does not make the next run rewrite those records.
 
-The helper overwrites `.test-results/evidence/validate.log` and
-`.test-results/evidence/test.log` on the next matching run. Those diagnostic
-logs are local and ignored. Commit the compact test record, rerun affected groups
-after source changes, and never use an older pass to conceal a newer failure.
+Each runner writes `running` before executing work, then atomically replaces it
+with `passed`, `failed`, or `blocked`. An interrupted attempt therefore cannot
+leave an older passing status. Diagnostic logs under
+`.test-results/evidence/` are local and ignored.
+
+APK assembly and device installation are delivery operations:
+
+```text
+uv run --project scripts --locked python scripts/build-android.py
+uv run --project scripts --locked python scripts/deploy-android.py [--serial DEVICE]
+```
+
+The build command emits bounded JSON on standard output and leaves the APK in
+Gradle's standard ignored output directory. Deployment requires that APK and
+never builds an implicit replacement.

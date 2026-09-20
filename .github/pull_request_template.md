@@ -4,10 +4,9 @@ Describe the behavior change and why it is needed.
 
 ## Validation
 
-- [ ] `uv run --locked scripts/validate-repository.py`
-- [ ] `uv run --locked scripts/repository_checks.py validate`
-- [ ] `uv run --locked scripts/repository_checks.py test`
-- [ ] `.test-results/` describes the source and test results above.
+- [ ] `uv run --project scripts --locked python scripts/validate-repository.py`
+- [ ] `uv run --project scripts --locked python scripts/run-tests.py`
+- [ ] `.test-results/validation.json`, `.test-results/tests.json`, and the group results describe this source.
 - [ ] Hardware behavior was tested, or the hardware limitation is explained below.
 
 ## Safety and data

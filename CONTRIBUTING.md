@@ -21,15 +21,14 @@ request:
 
 ```text
 uv sync --project scripts --locked
-uv run --locked scripts/validate-repository.py
-uv run --locked scripts/repository_checks.py validate
-uv run --locked scripts/repository_checks.py test
+uv run --project scripts --locked python scripts/validate-repository.py
+uv run --project scripts --locked python scripts/run-tests.py
 ```
 
-CI resolves these operations through `sdlc/sdlc.yml`. Keep deterministic
-Android task selection in `scripts/repository_checks.py` instead of duplicating
-task lists in workflow YAML. Commit the updated `.test-results/` record with
-the source it qualifies; never commit `.test-results/evidence/`.
+CI resolves these operations through `sdlc/sdlc.yml`. Repository validation,
+tests, APK assembly, and device installation have separate entry points under
+`scripts/`. Commit the updated `.test-results/` records with the source they
+qualify; never commit `.test-results/evidence/`.
 
 Hardware changes should describe the exact board and Android model tested, the
 duration or packet count, and any part that could not be verified. Sanitize all
