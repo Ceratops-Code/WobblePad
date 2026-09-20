@@ -1,0 +1,27 @@
+{
+  "checks": [
+    {
+      "exitCode": 0,
+      "id": "ruff",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "id": "mypy",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "id": "android-lint",
+      "status": "passed"
+    }
+  ],
+  "evidence": null,
+  "schema": "ceratops-repository-stage-result.v1",
+  "source": {
+    "contentSha256": "b8bc8bcd62f86f66e47e8a64bdc88eec0e459e4294e9e0d03322fdae9152279f",
+    "sourceCommit": "ff2b8ef349c46d240874ac493d900c49d081d59b"
+  },
+  "stage": "validation",
+  "status": "passed"
+}
