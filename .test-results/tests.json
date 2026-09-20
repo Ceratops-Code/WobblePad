@@ -3,20 +3,20 @@
     {
       "id": "repository-scripts",
       "path": ".test-results/groups/repository-scripts.json",
-      "sha256": "5ce3ba51203bfbda45997d6b79f02ea773c46d617df763b8c59eabe8be4fd486",
+      "sha256": "d6e33370c59c9d36f7f7824d86b0a323c13dbe5347952ceff63d62746d686683",
       "status": "passed"
     },
     {
       "id": "android-jvm",
       "path": ".test-results/groups/android-jvm.json",
-      "sha256": "522c7471855d24af769e8a79afe241331bd8dd13a23fbdf2e4335351271081b5",
+      "sha256": "a131ada8e81449386db03909cb74e6a20da5675cc3e91d9f820eb5c04b59d030",
       "status": "passed"
     }
   ],
   "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "b8bc8bcd62f86f66e47e8a64bdc88eec0e459e4294e9e0d03322fdae9152279f",
-    "sourceCommit": "ff2b8ef349c46d240874ac493d900c49d081d59b"
+    "contentSha256": "e8590edb68d866611e8f40a703466baf3516a349c05ab04c4d66296cd4c2c778",
+    "sourceCommit": "8597a95fb33de85ea98e48341d5920dda87d44a4"
   },
   "stage": "tests",
   "status": "passed"
