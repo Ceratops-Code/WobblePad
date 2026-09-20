@@ -65,6 +65,7 @@ def artifact_identity(path: pathlib.Path, root: pathlib.Path = ROOT) -> dict[str
     """Bind deployment evidence to the exact installed APK bytes."""
 
     return {
+        "type": "android-apk",
         "path": path.relative_to(root).as_posix(),
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         "size": path.stat().st_size,
@@ -80,7 +81,7 @@ def result(
     """Build one bounded deployment result object."""
 
     return {
-        "schema": "ceratops-android-deployment-result.v1",
+        "schema": "ceratops-deployment-result.v1",
         "status": status,
         "target": serial,
         "artifact": artifact,

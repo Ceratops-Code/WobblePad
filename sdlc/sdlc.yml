@@ -15,6 +15,7 @@ repository:
         capabilities:
           - uv
           - java
+      result-schema: ceratops-repository-stage-result.v1
       steps:
         - run:
             - uv
@@ -29,6 +30,7 @@ repository:
         capabilities:
           - uv
           - java
+      result-schema: ceratops-repository-stage-result.v1
       steps:
         - run:
             - uv
@@ -53,6 +55,7 @@ deliverables:
             capabilities:
               - uv
               - java
+          result-schema: ceratops-build-result.v1
           steps:
             - run:
                 - uv
@@ -80,6 +83,7 @@ deliverables:
               - adb
           parameters:
             - serial
+          result-schema: ceratops-deployment-result.v1
           steps:
             - run:
                 - uv

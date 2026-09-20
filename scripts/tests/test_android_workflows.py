@@ -31,6 +31,12 @@ BUILD = load_script("build-android.py", "wobblepad_build_android")
 DEPLOY = load_script("deploy-android.py", "wobblepad_deploy_android")
 RUN_TESTS = load_script("run-tests.py", "wobblepad_run_tests")
 VALIDATE = load_script("validate-repository.py", "wobblepad_validate_repository")
+ARTIFACT = {
+    "type": "android-apk",
+    "path": "app-debug.apk",
+    "sha256": "0" * 64,
+    "size": 1,
+}
 
 
 class BuildAndroidTests(unittest.TestCase):
@@ -42,8 +48,8 @@ class BuildAndroidTests(unittest.TestCase):
         )
 
     def test_build_result_has_structured_identity_without_receipt_path(self) -> None:
-        value = BUILD.result("passed", artifact={"path": "app-debug.apk"})
-        self.assertEqual(value["schema"], "ceratops-android-build-result.v1")
+        value = BUILD.result("passed", artifact=ARTIFACT)
+        self.assertEqual(value["schema"], "ceratops-build-result.v1")
         self.assertEqual(value["status"], "passed")
         self.assertNotIn("receipt", value)
 
@@ -54,6 +60,7 @@ class BuildAndroidTests(unittest.TestCase):
             artifact.write_bytes(b"apk")
             identity = BUILD.artifact_identity(artifact, root)
         self.assertEqual(identity["path"], "app-debug.apk")
+        self.assertEqual(identity["type"], "android-apk")
         self.assertEqual(identity["size"], 3)
         self.assertEqual(
             identity["sha256"],
@@ -78,7 +85,7 @@ class BuildAndroidTests(unittest.TestCase):
                 mock.patch.object(
                     BUILD,
                     "artifact_identity",
-                    return_value={"path": "app-debug.apk", "sha256": "abc", "size": 3},
+                    return_value=ARTIFACT,
                 ),
                 contextlib.redirect_stdout(stdout),
                 contextlib.redirect_stderr(stderr),
@@ -121,11 +128,11 @@ other unauthorized
         value = DEPLOY.result(
             "passed",
             serial="tablet:37111",
-            artifact={"path": "app-debug.apk"},
+            artifact=ARTIFACT,
         )
-        self.assertEqual(value["schema"], "ceratops-android-deployment-result.v1")
+        self.assertEqual(value["schema"], "ceratops-deployment-result.v1")
         self.assertEqual(value["target"], "tablet:37111")
-        self.assertEqual(value["artifact"], {"path": "app-debug.apk"})
+        self.assertEqual(value["artifact"], ARTIFACT)
 
 
 class ResultRecordTests(unittest.TestCase):

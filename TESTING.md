@@ -34,6 +34,9 @@ uv run --project scripts --locked python scripts/run-tests.py
 
 Validation replaces `.test-results/validation.json`. Tests replace the aggregate
 `.test-results/tests.json` and the group records under `.test-results/groups/`.
+The SDLC contract declares the canonical Ceratops result schema for validation,
+tests, APK builds, and tablet deployment; the lifecycle runner validates each
+successful command's complete JSON output before accepting it.
 The test runner rejects a zero-test JVM run and retains each case outcome and a
 digest of every nonignored source input. Aggregate group references include the
 SHA-256 digest of the exact group record. `sourceCommit` names the latest commit

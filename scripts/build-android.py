@@ -37,6 +37,7 @@ def artifact_identity(path: pathlib.Path, root: pathlib.Path = ROOT) -> dict[str
     """Describe exact APK bytes without creating a persistent receipt."""
 
     return {
+        "type": "android-apk",
         "path": path.relative_to(root).as_posix(),
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         "size": path.stat().st_size,
@@ -47,7 +48,7 @@ def result(status: str, *, artifact: dict[str, Any] | None = None) -> dict[str, 
     """Build one bounded SDLC result object."""
 
     return {
-        "schema": "ceratops-android-build-result.v1",
+        "schema": "ceratops-build-result.v1",
         "status": status,
         "artifact": artifact,
     }
