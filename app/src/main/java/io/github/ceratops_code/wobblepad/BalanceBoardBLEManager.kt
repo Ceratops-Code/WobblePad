@@ -7,7 +7,7 @@ import no.nordicsemi.android.ble.BleManager
 import java.util.UUID
 
 /** Nordic owns the GATT queue, discovery and CCCD write. Subscribe once per connection. */
-class BalanceBoardBleManager(context: Context, private val packet: (ByteArray) -> Unit,
+class BalanceBoardBLEManager(context: Context, private val packet: (ByteArray) -> Unit,
     private val battery: (Int) -> Unit, private val failure: (String) -> Unit) : BleManager(context) {
     private var stream: BluetoothGattCharacteristic? = null
     private var level: BluetoothGattCharacteristic? = null
