@@ -1,7 +1,7 @@
 {
   "action": "validate",
   "artifact": {
-    "contentSha256": "97bf0db30f54018c99eb70c7d47a04d8bc24149fe8aa6b91c0c7907985196ab9",
+    "contentSha256": "b1c55418f3f17feabdd263fe62c4ce7f6d7c55fad5d42017fe595f7fe8dff847",
     "entryCount": 95,
     "path": "app/build/outputs/apk/debug/app-debug.apk"
   },
@@ -15,7 +15,7 @@
   "exitCode": 0,
   "schema": "wobblepad-android-build-result.v2",
   "source": {
-    "contentSha256": "17c6d4afa666b7f9632bda6881270a33a8c9d266a3c9ffd85da1427ab7437b1a",
+    "contentSha256": "ff56aaa324dc527dd036c2631c938912db4bf1e8f83a4d40ab00c3261e40b5ec",
     "versionTag": null
   },
   "status": "passed"
