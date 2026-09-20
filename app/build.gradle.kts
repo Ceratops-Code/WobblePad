@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
 android {
     namespace = "io.github.ceratops_code.wobblepad"
@@ -21,7 +20,6 @@ android {
     lint { abortOnError = true }
 }
 
-kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 dependencies {
     implementation("no.nordicsemi.android:ble:2.11.0")
     implementation("dev.rikka.shizuku:api:13.1.5")
