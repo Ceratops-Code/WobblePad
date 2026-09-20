@@ -35,6 +35,11 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@2028fbc11e7f50cf78e23470d19a0b28aecd00a9 # v6.0.0
+        with:
+          node-version: "24"
+
       - name: Set up uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
@@ -43,6 +48,9 @@ jobs:
 
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install npm validation dependencies
+        run: npm --prefix scripts ci
 
       - name: Validate and test through SDLC
         uses: Ceratops-Code/AI-Agent-Skills/skills/ceratops-repo-lifecycle/scripts@56adb83bc11e1ef219d3fd40e6ee602ed7aad069
