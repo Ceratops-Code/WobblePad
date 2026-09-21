@@ -30,6 +30,30 @@ class JoystickMapperTest {
     }
 
     @Test
+    fun directionalSensitivityScalesEachDirectionIndependently() {
+        val mapper = JoystickMapper.calibrate(calibration(), ControlSettings(
+            left = 0.5, right = 2.0, up = 1.5, down = 0.75, deadZone = 0.0,
+        ))
+
+        assertEquals(1f, mapper.update(vector(50.0, 0.0), 1L).x, 0.0001f)
+        mapper.reset()
+        assertEquals(-0.25f, mapper.update(vector(-50.0, 0.0), 1L).x, 0.0001f)
+        mapper.reset()
+        assertEquals(0.75f, mapper.update(vector(0.0, 50.0), 1L).y, 0.0001f)
+        mapper.reset()
+        assertEquals(-0.375f, mapper.update(vector(0.0, -50.0), 1L).y, 0.0001f)
+    }
+
+    @Test
+    fun centerDeadZoneIsConfigurableSeparately() {
+        val mapper = JoystickMapper.calibrate(calibration(), ControlSettings(deadZone = 0.20))
+
+        assertEquals(0f, mapper.update(vector(15.0, 0.0), 1L).x, 0f)
+        mapper.reset()
+        assertEquals(0.5f, mapper.update(vector(60.0, 0.0), 1L).x, 0.0001f)
+    }
+
+    @Test
     fun smoothingUsesControlledTimeWithoutWaiting() {
         val mapper = JoystickMapper.calibrate(calibration())
 

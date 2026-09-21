@@ -1,11 +1,11 @@
 # WobblePad
 
-**Turn your balance board into an Android gamepad.**
+**Turn your balance board into an Android gamepad or Windows arrow controller.**
 
-WobblePad is an experimental native Android bridge for a user-owned BoBo
+WobblePad is an experimental Android and Windows bridge for a user-owned BoBo
 Wobbly balance board. It connects directly over Bluetooth Low Energy (BLE),
-turns the board's continuous tilt stream into calibrated X/Y values, and can
-present those values to Android as a virtual gamepad or arrow keys.
+turns the board's continuous tilt stream into calibrated X/Y values, and sends
+virtual gamepad or arrow-key input to compatible software.
 
 > [!IMPORTANT]
 > This is an independent, unofficial project. It is not affiliated with,
@@ -25,11 +25,15 @@ This repository contains a working prototype, not a production release.
 - The virtual controller uses Shizuku to open Android's `/dev/uhid` interface.
   Kernel policy, manufacturer changes, Shizuku state, and the receiving game's
   input support can all affect whether controller output works.
-- There is no signed production APK or Play Store release yet. Build and install
-  the debug app from source while the compatibility surface is still being
-  tested.
+- The Windows app connects through Bleak and emits arrow keys through the
+  documented Win32 `SendInput` API. Some games that read only raw hardware
+  input may ignore synthesized keys.
+- The Windows bundle has passed automated tests and a packaged startup check;
+  direct BLE and game-input behavior still require physical qualification.
+- There is no signed production APK, Windows installer, or store release yet.
+  Build from source while the compatibility surface is still being tested.
 
-## What the app does
+## What the Android app does
 
 1. Scans for a device whose name contains `BoBo` or advertises the known custom
    service.
@@ -44,6 +48,16 @@ This repository contains a working prototype, not a production release.
 
 Live BLE display, calibration, packet rate, and CSV export work without
 Shizuku. Shizuku is needed only for system-visible controller output.
+
+## What the Windows app does
+
+The Windows app scans and connects directly through the operating system's BLE
+stack, captures the same five calibration poses, and emits global arrow-key
+transitions. It releases every held key when output stops, BLE disconnects, or
+the app closes. Four independent sensitivity sliders control left, right,
+forward, and backward movement; a separate dead-zone slider controls neutral
+movement. Calibration and settings remain in the current user's local app-data
+folder.
 
 ## Why Shizuku is needed
 
@@ -60,7 +74,7 @@ started again after reboot through Android's wireless-debugging flow. Review
 the [Shizuku documentation](https://shizuku.rikka.app/guide/setup/) before
 granting access.
 
-## Requirements
+## Android requirements
 
 - Android 12 or later (`minSdk 31`)
 - Bluetooth LE hardware
@@ -70,6 +84,16 @@ granting access.
 
 Only one BLE central can commonly hold a peripheral connection at a time.
 Disconnect nRF Connect, the official app, and other BLE clients before testing.
+
+## Windows requirements
+
+- Windows 11
+- Bluetooth LE hardware
+- A compatible BoBo Wobbly board
+- Python 3.11 or later and `uv` when building from source
+
+The packaged Windows build includes its Python runtime and dependencies. It
+does not require Shizuku or a custom driver.
 
 ## Build
 
@@ -81,10 +105,13 @@ On Windows:
 
 ```powershell
 uv sync --project scripts --locked
+uv sync --project windows-app --locked
 uv run --project scripts --locked python scripts/validate-repository.py
 uv run --project scripts --locked python scripts/run-tests.py
 uv run --project scripts --locked python scripts/build-android.py
 uv run --project scripts --locked python scripts/deploy-android.py
+uv run --project windows-app --locked python scripts/build-windows.py
+uv run --project scripts --locked python scripts/deploy-windows.py
 ```
 
 On Linux or macOS:
@@ -97,6 +124,9 @@ uv run --project scripts --locked python scripts/build-android.py
 uv run --project scripts --locked python scripts/deploy-android.py
 ```
 
+The Windows package must be built and installed on Windows because PyInstaller
+does not cross-compile Windows executables.
+
 Android Studio can also open the repository root directly. Debug builds use the
 standard per-machine Android debug key; no signing key is stored here.
 
@@ -104,11 +134,11 @@ Validation and test helpers write portable results to `.test-results/`, bound
 to a source-content digest and the latest commit that changed those source
 inputs. Supporting logs stay under the
 ignored `.test-results/evidence/` directory. Build and deployment emit bounded
-JSON to standard output; the APK remains in Gradle's ignored output directory. See
-[TESTING.md](TESTING.md) for the feature-to-observation map and the hardware
-checks that remain manual.
+JSON to standard output; platform artifacts remain in ignored build
+directories. See [TESTING.md](TESTING.md) for the feature-to-observation map and
+the hardware checks that remain manual.
 
-## Use
+## Use on Android
 
 1. Power on the board and keep it awake.
 2. Open WobblePad and allow Nearby devices and notification permissions.
@@ -123,6 +153,16 @@ checks that remain manual.
 
 Calibration is stored locally and keyed to the board's Bluetooth address. It is
 not included in this repository and is not transmitted by the app.
+
+## Use on Windows
+
+1. Run `WobblePad.exe`, power on the board, and close other BLE clients.
+2. Scan, choose the board, and connect.
+3. Capture center, left, right, up/forward, and down/backward; then finish
+   calibration.
+4. Adjust any directional sensitivity or the center dead zone.
+5. Start arrow output, then open an arrow-controlled game. Return to WobblePad
+   to stop output before disconnecting.
 
 ## BLE protocol
 
@@ -152,9 +192,9 @@ bounded recent-packet CSV buffer remain on the Android device. A CSV leaves the
 app only when the user chooses a destination through Android's document picker.
 Do not publish Bluetooth addresses or raw captures without sanitizing them.
 
-Shizuku grants elevated local capability. WobblePad limits its user service to
-creating and updating one virtual input device, releases all input on stop or
-failure, and does not expose that service to other apps. See
+On Android, Shizuku grants elevated local capability. WobblePad limits its user
+service to creating and updating one virtual input device, releases all input
+on stop or failure, and does not expose that service to other apps. See
 [SECURITY.md](SECURITY.md) for reporting and trust-boundary details.
 
 ## Project layout
@@ -162,7 +202,8 @@ failure, and does not expose that service to other apps. See
 ```text
 app/src/main/       Android application, BLE client, calibration, and UHID bridge
 app/src/test/       JVM packet-parser and joystick-mapper tests
-scripts/            Validation, test, APK build, and Android deployment entry points
+windows-app/        Windows BLE, calibration, arrow-input app, and Python tests
+scripts/            Validation, tests, platform builds, and deployment entry points
 sdlc/sdlc.yml       Ceratops repository and deliverable contract
 .test-results/      Latest portable validation and automated-test results
 .github/            CI, dependency updates, and contribution templates

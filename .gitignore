@@ -13,6 +13,8 @@ keystore.properties
 # Local tools, environments, and generated artifacts
 .tools/
 .venv/
+__pycache__/
+*.py[cod]
 /scripts/node_modules/
 /Prototype/
 .artifacts/

@@ -8,7 +8,8 @@ Thank you for helping improve WobblePad.
   describe compatibility, and do not add vendor logos, artwork, screenshots,
   code, firmware, backend access, or paid content.
 - Do not commit Bluetooth addresses, real calibration samples, raw personal
-  captures, signing keys, APKs, Android Studio caches, or local SDK paths.
+  captures, signing keys, APKs, packaged executables, IDE caches, or local SDK
+  paths.
 - Avoid medical, rehabilitation, safety-certification, or universal
   compatibility claims.
 - Do not design controller output to evade anti-cheat or another app's rules.
@@ -16,7 +17,7 @@ Thank you for helping improve WobblePad.
 ## Development
 
 Use JDK 17, Android SDK Platform 36, Python 3.11 or later, and uv. Run the
-locked repository validation and both Android operations before opening a pull
+locked repository validation and cross-platform tests before opening a pull
 request:
 
 ```text
@@ -26,13 +27,13 @@ uv run --project scripts --locked python scripts/run-tests.py
 ```
 
 CI resolves these operations through `sdlc/sdlc.yml`. Repository validation,
-tests, APK assembly, and device installation have separate entry points under
-`scripts/`. Commit the updated `.test-results/` records with the source they
-qualify; never commit `.test-results/evidence/`.
+tests, Android APK delivery, and Windows package delivery have separate entry
+points under `scripts/`. Commit the updated `.test-results/` records with the
+source they qualify; never commit `.test-results/evidence/`.
 
-Hardware changes should describe the exact board and Android model tested, the
-duration or packet count, and any part that could not be verified. Sanitize all
-logs. A green JVM or emulator check does not establish physical BLE or
+Hardware changes should describe the exact board, operating system, and device
+tested, the duration or packet count, and any part that could not be verified.
+Sanitize all logs. Automated checks do not establish physical BLE or
 system-wide controller compatibility.
 
 Update [TESTING.md](TESTING.md) when supported behavior or its observable test

@@ -82,6 +82,28 @@ deliverables:
                 - --locked
                 - python
                 - scripts/build-android.py
+    wobblepad-windows-bundle:
+      source: windows-app
+      prerequisites: []
+      artifact:
+        type: windows-app-zip
+        output-directory: .build/windows
+        filename-pattern: WobblePad-Windows.zip
+      actions:
+        build:
+          requires:
+            capabilities:
+              - uv
+          result-schema: ceratops-build-result.v1
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - windows-app
+                - --locked
+                - python
+                - scripts/build-windows.py
   apps:
     wobblepad-android:
       source: app
@@ -112,3 +134,27 @@ deliverables:
                 - scripts/deploy-android.py
                 - --serial
                 - "{serial}"
+    wobblepad-windows:
+      source: windows-app
+      manifest: windows-app/pyproject.toml
+      prerequisites:
+        - wobblepad-windows-bundle
+      actions:
+        validate:
+          requires:
+            capabilities: []
+          no-op: Repository validation and tests cover the Windows app source.
+        install:
+          requires:
+            capabilities:
+              - uv
+          result-schema: ceratops-deployment-result.v1
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - python
+                - scripts/deploy-windows.py

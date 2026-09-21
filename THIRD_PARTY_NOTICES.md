@@ -2,8 +2,9 @@
 
 WobblePad is licensed under Apache License 2.0. The following direct
 dependencies and included build components retain their own copyright and
-license terms. Dependency resolution may add transitive Android and Kotlin
-components; their metadata is available through Gradle's dependency reports.
+license terms. Dependency resolution may add transitive Android, Kotlin, and
+Python components; their metadata is available through Gradle reports and the
+locked Python dependency graph.
 
 ## Nordic Semiconductor Android BLE Library 2.11.0
 
@@ -70,7 +71,37 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## Gradle Wrapper 8.13
+## Bleak 3.0.2
+
+Project: <https://github.com/hbldh/bleak>
+
+License: MIT
+
+Bleak is included in the packaged Windows application. Its complete MIT license
+and copyright notice are shipped as `THIRD_PARTY_LICENSES/BLEAK.txt`.
+
+## CPython 3.12.14
+
+Project: <https://www.python.org/>
+
+License: Python Software Foundation License Version 2
+
+The packaged Windows application includes the CPython runtime and standard
+library. Python's complete license and notices are shipped as
+`THIRD_PARTY_LICENSES/PYTHON.txt`.
+
+## PyInstaller 6.22.3
+
+Project: <https://pyinstaller.org/>
+
+License: GPL-2.0-or-later with the PyInstaller Bootloader Exception
+
+PyInstaller is used to build the Windows application. Its bootloader exception
+permits distribution of the generated executable without applying the GPL to
+the bundled application. The complete terms are shipped as
+`THIRD_PARTY_LICENSES/PYINSTALLER.txt`.
+
+## Gradle Wrapper 9.7.1
 
 Project: <https://github.com/gradle/gradle>
 

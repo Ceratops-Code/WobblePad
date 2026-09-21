@@ -10,6 +10,7 @@ import android.view.*
 import android.widget.*
 import rikka.shizuku.Shizuku
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /** Phone setup and live tilt screen. Android handles permission prompts and file export. */
 class MainActivity : Activity() {
@@ -61,6 +62,30 @@ class MainActivity : Activity() {
         }
         modes.check(100 + CalibrationStore(this).mode)
         modes.setOnCheckedChangeListener { _, id -> service?.setMode(id - 100) }; column.addView(modes)
+        title("Control sensitivity", 21)
+        title("Higher directional sensitivity reaches full input with less tilt. The center dead zone suppresses movement near level.", 14)
+        val controlStore = CalibrationStore(this)
+        val initialControls = controlStore.controls
+        fun updateControls(transform: (ControlSettings) -> ControlSettings) {
+            val updated = transform(controlStore.controls).normalized()
+            controlStore.controls = updated
+            service?.setControlSettings(updated)
+        }
+        percentSlider("Left sensitivity", initialControls.left, 50, 200) { value ->
+            updateControls { it.copy(left = value) }
+        }
+        percentSlider("Right sensitivity", initialControls.right, 50, 200) { value ->
+            updateControls { it.copy(right = value) }
+        }
+        percentSlider("Up / forward sensitivity", initialControls.up, 50, 200) { value ->
+            updateControls { it.copy(up = value) }
+        }
+        percentSlider("Down / backward sensitivity", initialControls.down, 50, 200) { value ->
+            updateControls { it.copy(down = value) }
+        }
+        percentSlider("Center dead zone", initialControls.deadZone, 0, 30) { value ->
+            updateControls { it.copy(deadZone = value) }
+        }
         start = button("Start controller output") { service?.startOutput() }
         row(start, button("Stop output") { service?.stopOutput() })
         column.addView(button("Check Android controller input") {
@@ -97,6 +122,24 @@ class MainActivity : Activity() {
     private fun row(vararg views: View) { column.addView(LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; views.forEach { addView(it, LinearLayout.LayoutParams(0, -2, 1f)) }
     }) }
+    private fun percentSlider(label: String, initial: Double, minimum: Int, maximum: Int, onChange: (Double) -> Unit) {
+        val value = title("", 14)
+        val slider = SeekBar(this).apply {
+            max = maximum - minimum
+            progress = (initial * 100).roundToInt().coerceIn(minimum, maximum) - minimum
+        }
+        fun render(progress: Int) { value.text = "$label: ${minimum + progress}%" }
+        render(slider.progress)
+        slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                render(progress)
+                if (fromUser) onChange((minimum + progress) / 100.0)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar) {}
+        })
+        column.addView(slider)
+    }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     private fun scan() {
         if (permissions.any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }) requestPermissions(permissions, 1)

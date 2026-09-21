@@ -1,13 +1,13 @@
 # WobblePad disclaimer
 
-Last updated: 2026-09-19
+Last updated: 2026-09-22
 
 ## Independent project
 
 WobblePad is an independent, unofficial, community-developed interoperability
 project. It is not affiliated with, authorized by, endorsed by, certified by,
 or sponsored by BO&BO Ltd. or any distributor, healthcare provider, game
-publisher, Android device manufacturer, or Shizuku maintainer.
+publisher, operating-system vendor, device manufacturer, or Shizuku maintainer.
 
 “BoBo,” “BoBo Wobbly,” and related product names or marks are the property of
 their respective owners. They are used in this repository only to identify the
@@ -35,8 +35,8 @@ Publication under an open-source license does not determine whether a
 particular user's activity is permitted by local law, a device warranty, a
 manufacturer agreement, a game agreement, an employer policy, or another
 contract. Those rules vary by place and use. You are responsible for reviewing
-and following the terms that apply to your hardware, Android device, apps, and
-games.
+and following the terms that apply to your hardware, Android device or Windows
+PC, apps, and games.
 
 The project maintainers do not represent that every form of reverse
 engineering, interoperability testing, controller emulation, or distribution
@@ -52,13 +52,14 @@ replace, or speak for those materials.
 
 WobblePad is experimental. It may fail to discover or connect to a board,
 misread future packet formats, lose calibration, reconnect repeatedly, create
-incorrect controller values, stop working after an Android or firmware update,
-or be rejected by a receiving app. Bluetooth radio conditions, manufacturer
-customizations, `/dev/uhid` availability, Shizuku state, and game input support
-can change behavior.
+incorrect controller values, stop working after an operating-system or firmware
+update, or be rejected by a receiving app. Bluetooth radio conditions,
+manufacturer customizations, `/dev/uhid` availability, Shizuku state, Windows
+input policy, and game input support can change behavior.
 
 No claim is made that WobblePad works with every BoBo model, hardware revision,
-Android device, operating-system build, game, or accessibility configuration.
+Android device, Windows PC, operating-system build, game, or accessibility
+configuration.
 Back up anything important and stop using the software if its output is
 unexpected.
 
@@ -76,11 +77,20 @@ options can expand the attack surface of a device; turn them off when they are
 not needed. WobblePad does not install Shizuku, root the device, unlock the
 bootloader, alter system partitions, or modify board firmware.
 
+## Windows global input
+
+The Windows application uses the operating system's `SendInput` API to emit
+arrow keys for the active application. It does not install a driver or require
+administrator rights. Synthesized input can affect whichever window has focus;
+stop arrow output before changing tasks or leaving the board unattended. Some
+games ignore synthesized keys or prohibit third-party input tools.
+
 ## Games, services, and fair use
 
 A game or service may prohibit automation, emulated input, accessibility-based
-control, unusual peripherals, or third-party tools even when Android permits
-the technical operation. Anti-cheat systems may block or penalize virtual input.
+control, unusual peripherals, or third-party tools even when the operating
+system permits the technical operation. Anti-cheat systems may block or
+penalize virtual input.
 Use WobblePad only where the receiving app's rules allow it. The project is an
 input-access and interoperability tool, not a means to obtain an unfair
 advantage or evade enforcement.
@@ -101,24 +111,26 @@ output.
 
 ## Data and privacy
 
-The application manifest does not request Internet access. BLE packets,
-Bluetooth addresses, calibration samples, and the bounded recent-packet buffer
-are processed locally. Saved calibration remains in private application
-storage. CSV data is exported only when the user chooses a destination through
-Android's document picker.
+The Android manifest does not request Internet access, and the Windows app does
+not perform Internet operations. BLE packets, Bluetooth addresses, calibration
+samples, and the bounded recent-packet buffer are processed locally. Android
+calibration remains in private application storage; Windows calibration remains
+in the current user's local app-data folder. CSV data is exported only when the
+Android user chooses a destination through the document picker.
 
 Bluetooth addresses and motion captures can still identify hardware or reveal
 activity patterns. Review and sanitize exported diagnostics before sharing
-them. Android, Shizuku, the receiving game, the operating system, and any file
-destination selected by the user have their own privacy behavior outside this
-project's control.
+them. Android, Windows, Shizuku, the receiving game, and any file destination
+selected by the user have their own privacy behavior outside this project's
+control.
 
 ## Third-party software
 
 WobblePad depends on third-party libraries and tools, including Nordic
-Semiconductor's Android BLE Library and the Shizuku API. Those projects are
-maintained and licensed separately. Their inclusion does not imply endorsement
-of WobblePad, and WobblePad does not imply endorsement of them. See
+Semiconductor's Android BLE Library, the Shizuku API, Bleak, Python, and
+PyInstaller. Those projects are maintained and licensed separately. Their
+inclusion does not imply endorsement of WobblePad, and WobblePad does not imply
+endorsement of them. See
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Warranty and liability

@@ -27,8 +27,11 @@ EVIDENCE_ROOT = RESULT_ROOT / "evidence"
 TEST_RESULT = RESULT_ROOT / "tests.json"
 SCRIPT_RESULT = GROUP_ROOT / "repository-scripts.json"
 ANDROID_RESULT = GROUP_ROOT / "android-jvm.json"
+WINDOWS_RESULT = GROUP_ROOT / "windows-python.json"
 SCRIPT_TEST_ROOT = ROOT / "scripts" / "tests"
 ANDROID_REPORT_ROOT = ROOT / "app" / "build" / "test-results" / "testDebugUnitTest"
+WINDOWS_TEST_ROOT = ROOT / "windows-app" / "tests"
+WINDOWS_SOURCE_ROOT = ROOT / "windows-app" / "src"
 
 
 def gradle_environment() -> dict[str, str]:
@@ -351,18 +354,47 @@ def run_android_tests(source: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     )
 
 
+def run_windows_tests(source: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    """Run the Windows app's hardware-free model and input-transition tests."""
+
+    evidence = EVIDENCE_ROOT / "windows-python.log"
+    command = [sys.executable, "-m", "unittest", "discover", "-s", "windows-app/tests"]
+    evidence.parent.mkdir(parents=True, exist_ok=True)
+    sys.path.insert(0, str(WINDOWS_SOURCE_ROOT))
+    try:
+        with evidence.open("w", encoding="utf-8", newline="\n") as stream:
+            suite = unittest.defaultTestLoader.discover(str(WINDOWS_TEST_ROOT))
+            result = unittest.TextTestRunner(
+                stream=stream, verbosity=2, resultclass=cast(Any, RecordingResult)
+            ).run(suite)
+    finally:
+        sys.path.remove(str(WINDOWS_SOURCE_ROOT))
+    recording = cast(RecordingResult, result)
+    cases = recording.cases
+    exit_code = 0 if recording.wasSuccessful() and cases else 1
+    status = "passed" if exit_code == 0 else "failed"
+    return exit_code, group_record(
+        "windows-python", status, source, command, evidence, cases
+    )
+
+
 def main() -> int:
     pending_source: dict[str, Any] = {"contentSha256": None, "sourceCommit": None}
     script_evidence = EVIDENCE_ROOT / "repository-scripts.log"
     android_evidence = EVIDENCE_ROOT / "android-jvm.log"
+    windows_evidence = EVIDENCE_ROOT / "windows-python.log"
     initial_script = group_record(
         "repository-scripts", "running", pending_source, [], script_evidence, []
     )
     initial_android = group_record(
         "android-jvm", "running", pending_source, [], android_evidence, []
     )
+    initial_windows = group_record(
+        "windows-python", "running", pending_source, [], windows_evidence, []
+    )
     write_json(SCRIPT_RESULT, initial_script)
     write_json(ANDROID_RESULT, initial_android)
+    write_json(WINDOWS_RESULT, initial_windows)
     write_json(
         TEST_RESULT,
         aggregate_record(
@@ -371,6 +403,7 @@ def main() -> int:
             [
                 ("repository-scripts", SCRIPT_RESULT, initial_script),
                 ("android-jvm", ANDROID_RESULT, initial_android),
+                ("windows-python", WINDOWS_RESULT, initial_windows),
             ],
         ),
     )
@@ -384,8 +417,12 @@ def main() -> int:
         blocked_android = group_record(
             "android-jvm", "blocked", pending_source, [], android_evidence, []
         )
+        blocked_windows = group_record(
+            "windows-python", "blocked", pending_source, [], windows_evidence, []
+        )
         write_json(SCRIPT_RESULT, blocked_script)
         write_json(ANDROID_RESULT, blocked_android)
+        write_json(WINDOWS_RESULT, blocked_windows)
         write_json(
             TEST_RESULT,
             aggregate_record(
@@ -394,6 +431,7 @@ def main() -> int:
                 [
                     ("repository-scripts", SCRIPT_RESULT, blocked_script),
                     ("android-jvm", ANDROID_RESULT, blocked_android),
+                    ("windows-python", WINDOWS_RESULT, blocked_windows),
                 ],
             ),
         )
@@ -406,8 +444,12 @@ def main() -> int:
     initial_android = group_record(
         "android-jvm", "running", source, [], android_evidence, []
     )
+    initial_windows = group_record(
+        "windows-python", "running", source, [], windows_evidence, []
+    )
     write_json(SCRIPT_RESULT, initial_script)
     write_json(ANDROID_RESULT, initial_android)
+    write_json(WINDOWS_RESULT, initial_windows)
     write_json(
         TEST_RESULT,
         aggregate_record(
@@ -416,6 +458,7 @@ def main() -> int:
             [
                 ("repository-scripts", SCRIPT_RESULT, initial_script),
                 ("android-jvm", ANDROID_RESULT, initial_android),
+                ("windows-python", WINDOWS_RESULT, initial_windows),
             ],
         ),
     )
@@ -424,13 +467,16 @@ def main() -> int:
     write_json(SCRIPT_RESULT, script_record)
     android_code, android_record = run_android_tests(source)
     write_json(ANDROID_RESULT, android_record)
-    status = "passed" if script_code == 0 and android_code == 0 else "failed"
+    windows_code, windows_record = run_windows_tests(source)
+    write_json(WINDOWS_RESULT, windows_record)
+    status = "passed" if script_code == 0 and android_code == 0 and windows_code == 0 else "failed"
     aggregate = aggregate_record(
         status,
         source,
         [
             ("repository-scripts", SCRIPT_RESULT, script_record),
             ("android-jvm", ANDROID_RESULT, android_record),
+            ("windows-python", WINDOWS_RESULT, windows_record),
         ],
     )
     write_json(TEST_RESULT, aggregate)
