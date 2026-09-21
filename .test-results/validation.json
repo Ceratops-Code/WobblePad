@@ -34,8 +34,8 @@
   "evidence": null,
   "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "b08dce28e0f9da86adade0f7c1dd5e3c36877573fdf4f34a3d1cd1a92ac6708c",
-    "sourceCommit": "0e8891fad20ada3dc98227b5bde68f8b530404e4"
+    "contentSha256": "595d79dbb5e67989ec3b5c02447256ab9e3c3ff839ed87630d28fdf0faf28ef4",
+    "sourceCommit": "e02f650cf8343861b47c27e70d16621613858c83"
   },
   "stage": "validation",
   "status": "passed"
