@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import pathlib
 import tempfile
 import unittest
@@ -15,6 +16,8 @@ from wobblepad_windows.model import (
     parse_packet,
     save_state,
 )
+
+FIXTURE_PATH = pathlib.Path(__file__).resolve().parents[2] / "test-fixtures" / "joystick-mapper-v1.csv"
 
 
 def vector(x: float, y: float) -> tuple[float, ...]:
@@ -35,6 +38,13 @@ def calibration_samples() -> dict[Pose, list[tuple[float, ...]]]:
     }
 
 
+def fixture_vector(row: dict[str, str], field: str) -> tuple[float, ...]:
+    parsed = parse_packet(bytes.fromhex(row[field]))
+    if parsed is None:
+        raise AssertionError(f"Invalid fixture packet in {row['id']} field {field}.")
+    return parsed
+
+
 class PacketTests(unittest.TestCase):
     def test_observed_packet_decodes_nine_signed_values(self) -> None:
         packet = bytes.fromhex("41 3F 01 43 01 29 01 F1 FF E7 FF FE FF 3A E0 68 E0 39 E0 42")
@@ -49,6 +59,33 @@ class PacketTests(unittest.TestCase):
 
 
 class MapperTests(unittest.TestCase):
+    def test_shared_conformance_cases_match_expected_outputs(self) -> None:
+        with FIXTURE_PATH.open(encoding="utf-8", newline="") as stream:
+            cases = list(csv.DictReader(stream))
+
+        self.assertTrue(cases)
+        for case in cases:
+            calibration = Calibration.from_samples(
+                {
+                    pose: samples(fixture_vector(case, f"{pose.value.lower()}_packet"))
+                    for pose in Pose
+                }
+            )
+            settings = ControlSettings(
+                left=float(case["left_sensitivity"]),
+                right=float(case["right_sensitivity"]),
+                up=float(case["up_sensitivity"]),
+                down=float(case["down_sensitivity"]),
+                dead_zone=float(case["dead_zone"]),
+            )
+            mapper = JoystickMapper(calibration, settings)
+            output = mapper.update(fixture_vector(case, "current_packet"), 1.0)
+
+            with self.subTest(case=case["id"]):
+                self.assertAlmostEqual(output.x, float(case["expected_x"]), places=6)
+                self.assertAlmostEqual(output.y, float(case["expected_y"]), places=6)
+                self.assertEqual(output.keys, int(case["expected_keys"]))
+
     def test_directional_sensitivity_is_independent(self) -> None:
         mapper = JoystickMapper(
             Calibration.from_samples(calibration_samples()),

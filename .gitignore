@@ -22,6 +22,7 @@ __pycache__/
 *.apk
 *.aab
 *.csv
+!/test-fixtures/joystick-mapper-v1.csv
 *.log
 
 # Portable validation and test results are tracked; supporting logs stay local.

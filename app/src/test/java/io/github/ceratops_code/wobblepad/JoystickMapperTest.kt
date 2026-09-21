@@ -54,6 +54,30 @@ class JoystickMapperTest {
     }
 
     @Test
+    fun sharedConformanceCasesMatchExpectedOutputs() {
+        val cases = loadConformanceCases()
+
+        assertTrue(cases.isNotEmpty())
+        for (testCase in cases) {
+            val mapper = JoystickMapper.calibrate(
+                mapOf(
+                    Pose.CENTER to packetSamples(testCase.centerPacket),
+                    Pose.LEFT to packetSamples(testCase.leftPacket),
+                    Pose.RIGHT to packetSamples(testCase.rightPacket),
+                    Pose.UP to packetSamples(testCase.upPacket),
+                    Pose.DOWN to packetSamples(testCase.downPacket),
+                ),
+                testCase.settings,
+            )
+            val output = mapper.update(packetVector(testCase.currentPacket), 1L)
+
+            assertEquals("${testCase.id} x", testCase.expectedX, output.x.toDouble(), 0.0001)
+            assertEquals("${testCase.id} y", testCase.expectedY, output.y.toDouble(), 0.0001)
+            assertEquals("${testCase.id} keys", testCase.expectedKeys, output.keys)
+        }
+    }
+
+    @Test
     fun smoothingUsesControlledTimeWithoutWaiting() {
         val mapper = JoystickMapper.calibrate(calibration())
 
@@ -119,7 +143,65 @@ class JoystickMapperTest {
     private fun vector(x: Double, y: Double): DoubleArray =
         DoubleArray(9).apply { this[0] = x; this[1] = y }
 
+    private fun packetSamples(packet: String): List<DoubleArray> =
+        List(10) { packetVector(packet) }
+
+    private fun packetVector(hex: String): DoubleArray {
+        require(hex.length % 2 == 0) { "Packet hex must contain complete bytes." }
+        val packet = hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        return requireNotNull(PacketParser.parse(packet)) { "Fixture packet is invalid." }
+    }
+
+    private fun loadConformanceCases(): List<ConformanceCase> {
+        val stream = requireNotNull(javaClass.getResourceAsStream("/joystick-mapper-v1.csv")) {
+            "Shared joystick conformance fixture is missing."
+        }
+        val rows = stream.bufferedReader().use { it.readLines() }
+        require(rows.firstOrNull() == FIXTURE_HEADER) { "Unexpected joystick fixture schema." }
+        return rows.drop(1).filter { it.isNotBlank() }.map { row ->
+            val columns = row.split(',')
+            require(columns.size == 15) { "Invalid joystick fixture row: $row" }
+            ConformanceCase(
+                id = columns[0],
+                centerPacket = columns[1],
+                leftPacket = columns[2],
+                rightPacket = columns[3],
+                upPacket = columns[4],
+                downPacket = columns[5],
+                currentPacket = columns[6],
+                settings = ControlSettings(
+                    left = columns[7].toDouble(),
+                    right = columns[8].toDouble(),
+                    up = columns[9].toDouble(),
+                    down = columns[10].toDouble(),
+                    deadZone = columns[11].toDouble(),
+                ),
+                expectedX = columns[12].toDouble(),
+                expectedY = columns[13].toDouble(),
+                expectedKeys = columns[14].toInt(),
+            )
+        }
+    }
+
+    private data class ConformanceCase(
+        val id: String,
+        val centerPacket: String,
+        val leftPacket: String,
+        val rightPacket: String,
+        val upPacket: String,
+        val downPacket: String,
+        val currentPacket: String,
+        val settings: ControlSettings,
+        val expectedX: Double,
+        val expectedY: Double,
+        val expectedKeys: Int,
+    )
+
     private companion object {
         const val EPSILON = 0.000001
+        const val FIXTURE_HEADER =
+            "id,center_packet,left_packet,right_packet,up_packet,down_packet,current_packet," +
+                "left_sensitivity,right_sensitivity,up_sensitivity,down_sensitivity,dead_zone," +
+                "expected_x,expected_y,expected_keys"
     }
 }
