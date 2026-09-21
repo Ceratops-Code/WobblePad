@@ -53,6 +53,7 @@ class BridgeService : Service() {
     private var pendingPose: Pose? = null
     private val pendingSamples = mutableListOf<DoubleArray>()
     private val samples = mutableMapOf<Pose, List<DoubleArray>>()
+    private var samplesAddress: String? = null
     private var mapper: JoystickMapper? = null
     private var wantOutput = false
     private val packetTimes = ArrayDeque<Long>()
@@ -131,11 +132,14 @@ class BridgeService : Service() {
     fun connect(address: String) {
         if (!permissions()) { message("Allow Nearby Devices first."); return }
         if (adapter?.isEnabled != true) { message("Turn on Bluetooth first."); return }
+        val keepCalibration = address.equals(samplesAddress, ignoreCase = true)
         disconnect()
         keepRunning()
-        samples.clear(); mapper = null
-        runCatching { calibration.load(address) }.onSuccess { saved ->
-            if (saved != null) { samples.putAll(saved); mapper = JoystickMapper.calibrate(samples) }
+        if (!keepCalibration) {
+            samples.clear(); mapper = null; samplesAddress = address
+            runCatching { calibration.load(address) }.onSuccess { saved ->
+                if (saved != null) { samples.putAll(saved); mapper = JoystickMapper.calibrate(samples) }
+            }
         }
         reconnects = 0
         state = BridgeState(address = address, calibrated = mapper != null, counts = samples.mapValues { it.value.size }, mode = calibration.mode)
