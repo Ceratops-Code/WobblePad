@@ -13,6 +13,10 @@
       "status": "passed"
     },
     {
+      "id": "test_android_workflows.BuildAndroidTests.test_gradle_environment_replaces_stale_java_home",
+      "status": "passed"
+    },
+    {
       "id": "test_android_workflows.BuildAndroidTests.test_main_keeps_gradle_logs_out_of_structured_stdout",
       "status": "passed"
     },
@@ -69,15 +73,15 @@
   "group": "repository-scripts",
   "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "e8590edb68d866611e8f40a703466baf3516a349c05ab04c4d66296cd4c2c778",
-    "sourceCommit": "8597a95fb33de85ea98e48341d5920dda87d44a4"
+    "contentSha256": "ffeab6f31899f24cd0c68229eac0cf883db293760f204ba34f89e041eae2274f",
+    "sourceCommit": "d108c5939b87220e5710a81d5413112b84fa6df5"
   },
   "stage": "tests",
   "status": "passed",
   "summary": {
     "failed": 0,
-    "passed": 14,
+    "passed": 15,
     "skipped": 0,
-    "total": 14
+    "total": 15
   }
 }
