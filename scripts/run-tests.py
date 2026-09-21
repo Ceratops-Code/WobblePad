@@ -31,6 +31,46 @@ SCRIPT_TEST_ROOT = ROOT / "scripts" / "tests"
 ANDROID_REPORT_ROOT = ROOT / "app" / "build" / "test-results" / "testDebugUnitTest"
 
 
+def gradle_environment() -> dict[str, str]:
+    """Replace a stale inherited Java home with a valid Windows setting."""
+
+    environment = os.environ.copy()
+
+    def valid_home(value: str | None) -> pathlib.Path | None:
+        if not value:
+            return None
+        home = pathlib.Path(os.path.expandvars(value.strip('"')))
+        executable = home / "bin" / ("java.exe" if os.name == "nt" else "java")
+        return home if executable.is_file() else None
+
+    if valid_home(environment.get("JAVA_HOME")) is not None:
+        return environment
+    environment.pop("JAVA_HOME", None)
+    if os.name != "nt":
+        return environment
+
+    import winreg
+
+    locations = (
+        (winreg.HKEY_CURRENT_USER, r"Environment"),
+        (
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+        ),
+    )
+    for hive, key_name in locations:
+        try:
+            with winreg.OpenKey(hive, key_name) as key:
+                value, _ = winreg.QueryValueEx(key, "JAVA_HOME")
+        except OSError:
+            continue
+        home = valid_home(str(value))
+        if home is not None:
+            environment["JAVA_HOME"] = str(home)
+            break
+    return environment
+
+
 def git_output(*arguments: str) -> str:
     """Return one successful Git query without leaking local paths."""
 
@@ -299,6 +339,7 @@ def run_android_tests(source: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             stderr=subprocess.STDOUT,
             text=True,
             check=False,
+            env=gradle_environment(),
         )
     cases = parse_android_results()
     exit_code = completed.returncode

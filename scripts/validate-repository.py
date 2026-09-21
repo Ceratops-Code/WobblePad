@@ -48,6 +48,46 @@ CHECK_DEFINITIONS = [{'id': 'ruff',
 COMMAND_NOT_FOUND_EXIT_CODE = 127
 
 
+def gradle_environment() -> dict[str, str]:
+    """Replace a stale inherited Java home with a valid Windows setting."""
+
+    environment = os.environ.copy()
+
+    def valid_home(value: str | None) -> pathlib.Path | None:
+        if not value:
+            return None
+        home = pathlib.Path(os.path.expandvars(value.strip('"')))
+        executable = home / "bin" / ("java.exe" if os.name == "nt" else "java")
+        return home if executable.is_file() else None
+
+    if valid_home(environment.get("JAVA_HOME")) is not None:
+        return environment
+    environment.pop("JAVA_HOME", None)
+    if os.name != "nt":
+        return environment
+
+    import winreg
+
+    locations = (
+        (winreg.HKEY_CURRENT_USER, r"Environment"),
+        (
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+        ),
+    )
+    for hive, key_name in locations:
+        try:
+            with winreg.OpenKey(hive, key_name) as key:
+                value, _ = winreg.QueryValueEx(key, "JAVA_HOME")
+        except OSError:
+            continue
+        home = valid_home(str(value))
+        if home is not None:
+            environment["JAVA_HOME"] = str(home)
+            break
+    return environment
+
+
 def git_output(*arguments: str) -> str:
     """Return one successful Git query without exposing command failures."""
 
@@ -308,7 +348,7 @@ def main() -> int:
     )
     with tempfile.TemporaryDirectory(prefix="repository-validation-") as temporary:
         temporary_root = pathlib.Path(temporary)
-        child_environment = os.environ.copy()
+        child_environment = gradle_environment()
         child_environment["PYTHONPYCACHEPREFIX"] = str(temporary_root / "python-cache")
         for definition in CHECK_DEFINITIONS:
             argv = command(definition, temporary_root)

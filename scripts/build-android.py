@@ -33,6 +33,46 @@ def build_command(wrapper: pathlib.Path) -> list[str]:
     return [str(wrapper), "--no-daemon", ":app:assembleDebug"]
 
 
+def gradle_environment() -> dict[str, str]:
+    """Replace a stale inherited Java home with a valid Windows setting."""
+
+    environment = os.environ.copy()
+
+    def valid_home(value: str | None) -> pathlib.Path | None:
+        if not value:
+            return None
+        home = pathlib.Path(os.path.expandvars(value.strip('"')))
+        executable = home / "bin" / ("java.exe" if os.name == "nt" else "java")
+        return home if executable.is_file() else None
+
+    if valid_home(environment.get("JAVA_HOME")) is not None:
+        return environment
+    environment.pop("JAVA_HOME", None)
+    if os.name != "nt":
+        return environment
+
+    import winreg
+
+    locations = (
+        (winreg.HKEY_CURRENT_USER, r"Environment"),
+        (
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+        ),
+    )
+    for hive, key_name in locations:
+        try:
+            with winreg.OpenKey(hive, key_name) as key:
+                value, _ = winreg.QueryValueEx(key, "JAVA_HOME")
+        except OSError:
+            continue
+        home = valid_home(str(value))
+        if home is not None:
+            environment["JAVA_HOME"] = str(home)
+            break
+    return environment
+
+
 def artifact_identity(path: pathlib.Path, root: pathlib.Path = ROOT) -> dict[str, Any]:
     """Describe exact APK bytes without creating a persistent receipt."""
 
@@ -69,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
         capture_output=True,
         text=True,
         check=False,
+        env=gradle_environment(),
     )
     if completed.stdout:
         print(completed.stdout, file=sys.stderr, end="")

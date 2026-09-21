@@ -40,6 +40,25 @@ ARTIFACT = {
 
 
 class BuildAndroidTests(unittest.TestCase):
+    def test_gradle_environment_replaces_stale_java_home(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            java_home = pathlib.Path(temporary)
+            executable = java_home / "bin" / "java.exe"
+            executable.parent.mkdir()
+            executable.write_text("fixture", encoding="utf-8")
+            key = mock.MagicMock()
+            key.__enter__.return_value = key
+            with (
+                mock.patch.dict(BUILD.os.environ, {"JAVA_HOME": "Z:\\missing"}),
+                mock.patch("winreg.OpenKey", return_value=key),
+                mock.patch("winreg.QueryValueEx", return_value=(str(java_home), 1)),
+            ):
+                for module in (BUILD, RUN_TESTS, VALIDATE):
+                    with self.subTest(module=module.__name__):
+                        self.assertEqual(
+                            module.gradle_environment()["JAVA_HOME"], str(java_home)
+                        )
+
     def test_build_command_has_one_owned_gradle_task(self) -> None:
         wrapper = pathlib.Path("gradlew.bat")
         self.assertEqual(
