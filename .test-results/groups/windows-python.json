@@ -1,0 +1,55 @@
+{
+  "cases": [
+    {
+      "id": "test_keyboard.ArrowKeyEmitterTests.test_emits_only_transitions_and_releases_every_key",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.MapperTests.test_collinear_calibration_is_rejected",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.MapperTests.test_dead_zone_is_separate_and_rescaled",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.MapperTests.test_directional_sensitivity_is_independent",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.PacketTests.test_malformed_packet_is_rejected",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.PacketTests.test_observed_packet_decodes_nine_signed_values",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.PersistenceTests.test_settings_and_calibration_round_trip",
+      "status": "passed"
+    }
+  ],
+  "command": [
+    "C:\\CodexProjects\\worktrees\\Wobblepad-Android\\multiplatform-wobblepad\\scripts\\.venv\\Scripts\\python.exe",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "windows-app/tests"
+  ],
+  "evidence": ".test-results/evidence/windows-python.log",
+  "group": "windows-python",
+  "schema": "ceratops-repository-stage-result.v1",
+  "source": {
+    "contentSha256": "53052e5a6ba7e741b7ca84172147c181eaa4a3f3dfc548f6f52db0e5f98f7ea0",
+    "sourceCommit": "99399982ee7a18c6eb38759b79ef451dd8a040c2"
+  },
+  "stage": "tests",
+  "status": "passed",
+  "summary": {
+    "failed": 0,
+    "passed": 7,
+    "skipped": 0,
+    "total": 7
+  }
+}
