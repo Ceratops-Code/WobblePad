@@ -49,9 +49,6 @@ jobs:
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Install npm validation dependencies
-        run: npm --prefix scripts ci
-
       - name: Validate and test through SDLC
         uses: Ceratops-Code/AI-Agent-Skills/skills/ceratops-repo-lifecycle/scripts@56adb83bc11e1ef219d3fd40e6ee602ed7aad069
         with:
