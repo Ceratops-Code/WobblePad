@@ -55,8 +55,8 @@
   "group": "android-jvm",
   "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "bd9c8f6a7dbe9ebe3c3c546ebe8c8dac8a39b84d7d5cefba9d4ce99ed964e512",
-    "sourceCommit": "f44d2a4f3c7b6efb8d25179c7ed6353c1c233e53"
+    "contentSha256": "ef5969bc7cf2aa41bf05c35ad6e1c46d5cd56d5e4a712f941eda2fbb71e0c276",
+    "sourceCommit": "d24531d440f5fc37aaebcaa6f7f884c9a19240f4"
   },
   "stage": "tests",
   "status": "passed",
