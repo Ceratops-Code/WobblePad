@@ -8,7 +8,9 @@ from typing import Callable
 
 from bleak import BleakClient, BleakScanner
 
-from wobblepad_windows.model import CHARACTERISTIC_UUID, SERVICE_UUID
+from wobblepad_windows.model import BATTERY_LEVEL_UUID, CHARACTERISTIC_UUID, SERVICE_UUID
+
+BATTERY_REFRESH_SECONDS = 60.0
 
 
 @dataclass(frozen=True)
@@ -24,9 +26,11 @@ class BleBridge:
         self,
         packet_callback: Callable[[bytes], None],
         status_callback: Callable[[str, bool], None],
+        battery_callback: Callable[[int | None], None],
     ) -> None:
         self._packet_callback = packet_callback
         self._status_callback = status_callback
+        self._battery_callback = battery_callback
         self._address: str | None = None
         self._connection_task: asyncio.Task[None] | None = None
         self._client: BleakClient | None = None
@@ -62,6 +66,7 @@ class BleBridge:
                 pass
         await self._disconnect_client()
         self._status_callback("Disconnected", False)
+        self._battery_callback(None)
 
     def _notification(self, _characteristic: object, data: bytearray) -> None:
         loop = asyncio.get_running_loop()
@@ -79,6 +84,14 @@ class BleBridge:
                 await client.disconnect()
         except Exception:
             pass
+
+    async def _read_battery(self, client: BleakClient) -> None:
+        try:
+            value = await client.read_gatt_char(BATTERY_LEVEL_UUID)
+            percent = int(value[0]) if value else -1
+            self._battery_callback(percent if 0 <= percent <= 100 else None)
+        except Exception:
+            self._battery_callback(None)
 
     async def _connection_loop(self, address: str) -> None:
         attempts = 0
@@ -105,6 +118,8 @@ class BleBridge:
                     loop = asyncio.get_running_loop()
                     self._last_packet = loop.time()
                     self._packets = 0
+                    await self._read_battery(client)
+                    next_battery_read = loop.time() + BATTERY_REFRESH_SECONDS
                     self._status_callback("Connected — waiting for tilt packets", True)
                     while self._address == address and client.is_connected:
                         try:
@@ -112,6 +127,9 @@ class BleBridge:
                             reason = "Balance board disconnected"
                             break
                         except TimeoutError:
+                            if loop.time() >= next_battery_read:
+                                await self._read_battery(client)
+                                next_battery_read = loop.time() + BATTERY_REFRESH_SECONDS
                             timeout = 1.0 if self._packets else 3.0
                             if loop.time() - self._last_packet > timeout:
                                 reason = "Tilt stream stalled"
@@ -124,6 +142,7 @@ class BleBridge:
                     reason = f"Bluetooth error: {error}"
                 finally:
                     await self._disconnect_client()
+                    self._battery_callback(None)
                 attempts = 0 if self._packets >= 100 else attempts + 1
                 if attempts > 3:
                     self._status_callback(f"{reason}. Reconnect stopped; scan again.", False)

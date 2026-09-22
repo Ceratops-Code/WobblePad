@@ -21,11 +21,11 @@ class CalibrationStore(private val context: Context) {
                 DoubleArray(9) { vector.getDouble(it) }
             }
         }
-        JoystickMapper.calibrate(samples, controls)
+        JoystickMapper.calibrate(samples, controlsFor(0))
         return samples
     }
     fun save(address: String, samples: Map<Pose, List<DoubleArray>>) {
-        JoystickMapper.calibrate(samples, controls)
+        JoystickMapper.calibrate(samples, controlsFor(0))
         val data = JSONObject()
         samples.forEach { (pose, vectors) -> data.put(pose.name, JSONArray().apply {
             vectors.forEach { vector -> put(JSONArray().apply { vector.forEach { put(it) } }) }
@@ -34,8 +34,8 @@ class CalibrationStore(private val context: Context) {
         prefs.edit().putString("calibration:$address", text).apply()
     }
     var mode: Int
-        get() = prefs.getInt("mode", 0).coerceIn(0, 1)
-        set(value) { prefs.edit().putInt("mode", value.coerceIn(0, 1)).apply() }
+        get() = prefs.getInt("mode", 0).coerceIn(0, 2)
+        set(value) { prefs.edit().putInt("mode", value.coerceIn(0, 2)).apply() }
     fun controlsFor(mode: Int): ControlSettings {
         val prefix = "controls:${mode.coerceIn(0, 1)}"
         fun float(name: String, legacy: String, default: Float) =
@@ -65,7 +65,4 @@ class CalibrationStore(private val context: Context) {
             .putInt("$prefix:key-repeat-ms", normalized.repeatIntervalMs)
             .apply()
     }
-    var controls: ControlSettings
-        get() = controlsFor(mode)
-        set(value) { saveControls(mode, value) }
 }

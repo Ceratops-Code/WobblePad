@@ -53,7 +53,7 @@ class InputCheckActivity : Activity() {
         handler.postDelayed({ if (id == token) { stop(); status.text = "Check finished: $events Android events received. Controller removed." } }, sequence.size * 550L + 600)
     }
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
-        if (event.device?.name == ControllerUserService.name(0) && event.isFromSource(InputDevice.SOURCE_JOYSTICK)) {
+        if (event.device?.name == ControllerUserService.names(0).single() && event.isFromSource(InputDevice.SOURCE_JOYSTICK)) {
             val x = event.getAxisValue(MotionEvent.AXIS_X); val y = event.getAxisValue(MotionEvent.AXIS_Y)
             plot.stick = Stick(x, -y); plot.invalidate(); events++
             received.text = "Android received: X $x, Y $y\nEvents: $events"
@@ -63,7 +63,7 @@ class InputCheckActivity : Activity() {
         return super.onGenericMotionEvent(event)
     }
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.device?.name == ControllerUserService.name(1)) {
+        if (event.device?.name == ControllerUserService.names(1).single()) {
             events++; received.text = "Android received: ${KeyEvent.keyCodeToString(event.keyCode)} ${if (event.action == 0) "down" else "up"}\nEvents: $events"
             Log.i("WobblePadCheck", "RECEIVED key=${event.keyCode} action=${event.action}")
             return true

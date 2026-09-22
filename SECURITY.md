@@ -25,7 +25,7 @@ private advisory.
 - Calibration and CSV data remain local unless the user exports them.
 - Virtual controller output requires an explicit Shizuku grant and a separate
   user service running with Android shell identity.
-- The privileged helper opens `/dev/uhid`, creates one virtual input device,
+- The privileged helper opens `/dev/uhid`, creates one or two virtual input devices,
   accepts only the app's small controller protocol, and releases input on stop
   or failure.
 - On Windows, arrow output uses `SendInput` without elevation and releases every

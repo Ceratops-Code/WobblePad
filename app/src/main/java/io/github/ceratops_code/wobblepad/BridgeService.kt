@@ -26,7 +26,8 @@ data class BridgeState(
     val stick: Stick = Stick(), val calibrated: Boolean = false,
     val counts: Map<Pose, Int> = emptyMap(), val capture: Pose? = null,
     val output: Boolean = false, val outputMessage: String = "Controller output is stopped",
-    val mode: Int = 0, val controls: ControlSettings = ControlSettings()
+    val mode: Int = 0, val analogControls: ControlSettings = ControlSettings(),
+    val arrowControls: ControlSettings = ControlSettings()
 )
 
 /** Owns BLE and controller lifetime while another app is in front. All state changes
@@ -55,12 +56,14 @@ class BridgeService : Service() {
     private val pendingSamples = mutableListOf<DoubleArray>()
     private val samples = mutableMapOf<Pose, List<DoubleArray>>()
     private var samplesAddress: String? = null
-    private var mapper: JoystickMapper? = null
+    private var analogMapper: JoystickMapper? = null
+    private var arrowMapper: JoystickMapper? = null
     private val keyRepeater = KeyPulseRepeater()
     private var wantOutput = false
     private var autoDiscover = false
     private var autoOutputPending = false
     private var nextOutputAttempt = 0L
+    private var nextBatteryRead = 0L
     private var connectionToastShown = false
     private var controllerToastShown = false
     private val packetTimes = ArrayDeque<Long>()
@@ -72,9 +75,10 @@ class BridgeService : Service() {
         super.onCreate()
         calibration = CalibrationStore(this)
         val savedMode = calibration.mode
-        val savedControls = calibration.controlsFor(savedMode)
-        state = state.copy(mode = savedMode, controls = savedControls)
-        keyRepeater.setInterval(calibration.controls.repeatIntervalMs)
+        val analogControls = calibration.controlsFor(0)
+        val arrowControls = calibration.controlsFor(1)
+        state = state.copy(mode = savedMode, analogControls = analogControls, arrowControls = arrowControls)
+        keyRepeater.setInterval(arrowControls.repeatIntervalMs)
         controller = ControllerLink(this) { ready, message ->
             val retry = !ready && !controller.binding && wantOutput && state.connected
             if (!ready && !controller.binding) wantOutput = false
@@ -223,28 +227,39 @@ class BridgeService : Service() {
         if (!automatic) autoDiscover = false
         handler.removeCallbacks(scanAgain)
         ++generation; stopScan(); stopOutput("Controller output is waiting for BoBo", resume = true); cancelCapture(); retireClient()
-        lastPacket = 0; readyAt = 0; mapper?.reset()
+        lastPacket = 0; readyAt = 0; nextBatteryRead = 0
+        analogMapper?.reset(); arrowMapper?.reset()
         autoOutputPending = true
         keepRunning()
         if (!keepCalibration) {
-            samples.clear(); mapper = null; samplesAddress = address
+            samples.clear(); analogMapper = null; arrowMapper = null; samplesAddress = address
             runCatching { calibration.load(address) }.onSuccess { saved ->
-                if (saved != null) { samples.putAll(saved); mapper = JoystickMapper.calibrate(samples, calibration.controls) }
+                if (saved != null) {
+                    samples.putAll(saved)
+                    analogMapper = JoystickMapper.calibrate(samples, calibration.controlsFor(0))
+                    arrowMapper = JoystickMapper.calibrate(samples, calibration.controlsFor(1))
+                }
             }
         }
         reconnects = 0
-        state = BridgeState(address = address, calibrated = mapper != null, counts = samples.mapValues { it.value.size },
-            outputMessage = "Controller output starts automatically", mode = calibration.mode, controls = calibration.controls)
+        state = BridgeState(address = address, calibrated = analogMapper != null && arrowMapper != null,
+            counts = samples.mapValues { it.value.size }, outputMessage = "Controller output starts automatically",
+            mode = calibration.mode, analogControls = calibration.controlsFor(0), arrowControls = calibration.controlsFor(1))
         connectAttempt()
     }
     private fun connectAttempt() {
         val address = state.address ?: return
         val token = ++generation
-        lastPacket = 0; readyAt = 0; stablePackets = 0; packetTimes.clear(); resetConnectionToasts()
+        lastPacket = 0; readyAt = 0; stablePackets = 0; nextBatteryRead = 0
+        packetTimes.clear(); resetConnectionToasts()
+        state = state.copy(battery = null)
         message(if (reconnects == 0) "Connecting to BoBo…" else "Reconnecting to BoBo ($reconnects/3)…")
         try {
             val client = BalanceBoardBLEManager(this, { bytes -> if (token == generation) onPacket(bytes) },
-                { level -> if (token == generation) { state = state.copy(battery = level); publish() } },
+                { level -> if (token == generation) {
+                    nextBatteryRead = SystemClock.elapsedRealtime() + BATTERY_REFRESH_MS
+                    state = state.copy(battery = level); publish()
+                } },
                 { error -> if (token == generation) recover(error) })
             manager = client
             client.setConnectionObserver(object : ConnectionObserver {
@@ -279,8 +294,9 @@ class BridgeService : Service() {
     }
     private fun recover(reason: String) {
         ++generation
-        controller.send(Stick()); mapper?.reset(); keyRepeater.reset(); cancelCapture()
-        state = state.copy(connected = false, stick = Stick(), rate = 0, status = "$reason. Input paused.")
+        controller.send(Stick()); analogMapper?.reset(); arrowMapper?.reset(); keyRepeater.reset(); cancelCapture()
+        nextBatteryRead = 0
+        state = state.copy(connected = false, battery = null, stick = Stick(), rate = 0, status = "$reason. Input paused.")
         publish()
         val token = generation
         retireClient {
@@ -290,7 +306,7 @@ class BridgeService : Service() {
                 } else if (autoDiscover) {
                     reconnects = 0
                     autoOutputPending = true
-                    state = state.copy(address = null, connected = false, stick = Stick(), rate = 0)
+                    state = state.copy(address = null, connected = false, battery = null, stick = Stick(), rate = 0)
                     message("$reason. Watching for BoBo to return…")
                     handler.postDelayed(scanAgain, SCAN_RETRY_MS)
                 } else {
@@ -302,8 +318,9 @@ class BridgeService : Service() {
     fun disconnect() {
         autoDiscover = false; autoOutputPending = false; handler.removeCallbacks(scanAgain)
         ++generation; stopScan(); stopOutput(); cancelCapture(); retireClient()
-        lastPacket = 0; readyAt = 0; resetConnectionToasts(); mapper?.reset()
-        state = state.copy(address = null, connected = false, stick = Stick(), rate = 0, status = "Disconnected")
+        lastPacket = 0; readyAt = 0; nextBatteryRead = 0; resetConnectionToasts()
+        analogMapper?.reset(); arrowMapper?.reset()
+        state = state.copy(address = null, connected = false, battery = null, stick = Stick(), rate = 0, status = "Disconnected")
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); publish()
     }
     private fun onPacket(bytes: ByteArray) {
@@ -314,9 +331,19 @@ class BridgeService : Service() {
         if (++stablePackets >= 100) reconnects = 0
         if (autoOutputPending && now >= nextOutputAttempt) tryStartOutput(now)
         pendingPose?.let { if (pendingSamples.size < 500) pendingSamples.add(raw) }
-        val stick = if (pendingPose == null) mapper?.update(raw) ?: Stick() else Stick()
+        val analog = if (pendingPose == null) analogMapper?.update(raw) ?: Stick() else Stick()
+        val arrows = if (pendingPose == null) arrowMapper?.update(raw) ?: Stick() else Stick()
+        val stick = when (state.mode) {
+            1 -> arrows
+            2 -> Stick(analog.x, analog.y, arrows.keys)
+            else -> analog
+        }
         if (wantOutput) {
-            val report = if (state.mode == 1) stick.copy(keys = keyRepeater.update(stick.keys, now)) else stick
+            val report = when (state.mode) {
+                1 -> Stick(keys = keyRepeater.update(arrows.keys, now))
+                2 -> Stick(analog.x, analog.y, keyRepeater.update(arrows.keys, now))
+                else -> analog
+            }
             controller.send(report)
         }
         val pose = pendingPose?.name.orEmpty()
@@ -333,6 +360,10 @@ class BridgeService : Service() {
             val now = SystemClock.elapsedRealtime()
             while (packetTimes.isNotEmpty() && now - packetTimes.first() > 1000) packetTimes.removeFirst()
             state = state.copy(rate = packetTimes.size)
+            if (state.connected && now >= nextBatteryRead) {
+                nextBatteryRead = now + BATTERY_REFRESH_MS
+                manager?.readBattery()
+            }
             if (pendingPose != null && now >= captureEnds) completeCapture()
             if (state.connected && ((lastPacket > 0 && now - lastPacket > 1000) || (lastPacket == 0L && readyAt > 0 && now - readyAt > 3000))) recover("Tilt stream stopped")
             publish(); handler.postDelayed(this, 200)
@@ -357,8 +388,9 @@ class BridgeService : Service() {
     fun finishCalibration() {
         val address = state.address ?: return
         runCatching {
-            val result = JoystickMapper.calibrate(samples, calibration.controls)
-            calibration.save(address, samples); mapper = result
+            val analog = JoystickMapper.calibrate(samples, calibration.controlsFor(0))
+            val arrows = JoystickMapper.calibrate(samples, calibration.controlsFor(1))
+            calibration.save(address, samples); analogMapper = analog; arrowMapper = arrows
         }.onSuccess { state = state.copy(calibrated = true); message("Calibration saved."); ensureOutput() }
             .onFailure { message(it.message ?: "Calibration could not be saved") }
     }
@@ -371,21 +403,25 @@ class BridgeService : Service() {
         }.onFailure { message(it.message ?: "Could not close BoBo Home") }
     }
     fun setMode(mode: Int) {
-        val nextMode = mode.coerceIn(0, 1)
+        val nextMode = mode.coerceIn(0, 2)
         if (nextMode == state.mode) { ensureOutput(); return }
         calibration.mode = nextMode
-        val controls = calibration.controlsFor(nextMode)
-        mapper?.setControlSettings(controls)
-        keyRepeater.setInterval(controls.repeatIntervalMs)
-        state = state.copy(mode = nextMode, controls = controls)
+        keyRepeater.setInterval(state.arrowControls.repeatIntervalMs)
+        state = state.copy(mode = nextMode)
         restartOutput()
     }
-    fun setControlSettings(settings: ControlSettings) {
+    fun setControlSettings(profile: Int, settings: ControlSettings) {
+        val selected = profile.coerceIn(0, 1)
         val normalized = settings.normalized()
-        calibration.saveControls(state.mode, normalized)
-        mapper?.setControlSettings(normalized)
-        keyRepeater.setInterval(normalized.repeatIntervalMs)
-        state = state.copy(controls = normalized)
+        calibration.saveControls(selected, normalized)
+        if (selected == 0) {
+            analogMapper?.setControlSettings(normalized)
+            state = state.copy(analogControls = normalized)
+        } else {
+            arrowMapper?.setControlSettings(normalized)
+            keyRepeater.setInterval(normalized.repeatIntervalMs)
+            state = state.copy(arrowControls = normalized)
+        }
         publish()
         ensureOutput()
     }
@@ -395,7 +431,7 @@ class BridgeService : Service() {
         tryStartOutput(SystemClock.elapsedRealtime())
     }
     private fun tryStartOutput(now: Long) {
-        if (!autoOutputPending || state.output || controller.binding || !state.connected || mapper == null || pendingPose != null ||
+        if (!autoOutputPending || state.output || controller.binding || !state.connected || analogMapper == null || arrowMapper == null || pendingPose != null ||
             lastPacket == 0L || now - lastPacket > 1000) return
         if (!ControllerLink.available()) {
             nextOutputAttempt = now + OUTPUT_ACCESS_RETRY_MS
@@ -410,7 +446,7 @@ class BridgeService : Service() {
     private fun startOutput() {
         autoOutputPending = false
         nextOutputAttempt = 0
-        wantOutput = true; mapper?.reset(); keyRepeater.reset()
+        wantOutput = true; analogMapper?.reset(); arrowMapper?.reset(); keyRepeater.reset()
         runCatching { controller.start(state.mode) }.onFailure {
             wantOutput = false
             autoOutputPending = true
@@ -453,6 +489,7 @@ class BridgeService : Service() {
 
     private companion object {
         const val CONNECTION_TOAST_COALESCE_MS = 500L
+        const val BATTERY_REFRESH_MS = 60_000L
         const val OUTPUT_ACCESS_RETRY_MS = 2000L
         const val OUTPUT_RESTART_MS = 300L
         const val SCAN_RETRY_MS = 2500L

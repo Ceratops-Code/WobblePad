@@ -26,7 +26,8 @@ class MainActivity : Activity() {
     private lateinit var plot: StickView
     private val poses = mutableMapOf<Pose, Button>()
     private var previousBoards = emptyList<Board>()
-    private var displayedControlMode = -1
+    private var displayedOutputMode = -1
+    private var displayedControlProfile = 0
     private var displayedControls = ControlSettings()
     private var shizukuRequestPending = false
     private var shizukuRequestAttempted = false
@@ -75,21 +76,23 @@ class MainActivity : Activity() {
         output = title("Controller output starts automatically", 15)
         val controlStore = CalibrationStore(this)
         val modes = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
-        listOf("Analog stick", "Arrow keys").forEachIndexed { i, text ->
+        listOf("Analog stick", "Arrow keys", "Both").forEachIndexed { i, text ->
             modes.addView(RadioButton(this).apply { id = 100 + i; this.text = text; setTextColor(Color.WHITE) })
         }
         val initialMode = controlStore.mode
         modes.check(100 + initialMode)
         modes.setOnCheckedChangeListener { _, id ->
-            val mode = (id - 100).coerceIn(0, 1)
+            val mode = (id - 100).coerceIn(0, 2)
             controlStore.mode = mode
-            showControlSettings(mode, controlStore.controlsFor(mode))
+            val profile = if (mode == 1) 1 else 0
+            showControlSettings(mode, profile, controlStore.controlsFor(profile))
             service?.setMode(mode)
         }
         column.addView(modes)
         controlsPanel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         column.addView(controlsPanel)
-        showControlSettings(initialMode, controlStore.controlsFor(initialMode))
+        val initialProfile = if (initialMode == 1) 1 else 0
+        showControlSettings(initialMode, initialProfile, controlStore.controlsFor(initialProfile))
         column.addView(button("Check Android controller input") {
             service?.pauseOutputForInputCheck(); startActivity(Intent(this, InputCheckActivity::class.java))
         })
@@ -129,24 +132,37 @@ class MainActivity : Activity() {
     private fun row(vararg views: View) { column.addView(LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; views.forEach { addView(it, LinearLayout.LayoutParams(0, -2, 1f)) }
     }) }
-    private fun showControlSettings(mode: Int, settings: ControlSettings) {
-        displayedControlMode = mode
+    private fun showControlSettings(mode: Int, profile: Int, settings: ControlSettings) {
+        displayedOutputMode = mode
+        displayedControlProfile = profile.coerceIn(0, 1)
         displayedControls = settings
         controlsPanel.removeAllViews()
-        title(if (mode == 0) "Analog stick sensitivity" else "Arrow-key sensitivity", 21, controlsPanel)
+        if (mode == 2) {
+            val profiles = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
+            listOf("Stick sensitivity", "Arrow sensitivity").forEachIndexed { index, text ->
+                profiles.addView(RadioButton(this).apply { id = 200 + index; this.text = text; setTextColor(Color.WHITE) })
+            }
+            profiles.check(200 + displayedControlProfile)
+            profiles.setOnCheckedChangeListener { _, id ->
+                val selected = (id - 200).coerceIn(0, 1)
+                showControlSettings(2, selected, CalibrationStore(this).controlsFor(selected))
+            }
+            controlsPanel.addView(profiles)
+        }
+        title(if (displayedControlProfile == 0) "Analog stick sensitivity" else "Arrow-key sensitivity", 21, controlsPanel)
         title("Higher sensitivity reaches full input with less tilt. The center dead zone suppresses movement near level.", 14, controlsPanel)
         fun update(transform: (ControlSettings) -> ControlSettings) {
             val updated = transform(displayedControls).normalized()
             displayedControls = updated
-            CalibrationStore(this).saveControls(mode, updated)
-            service?.setControlSettings(updated)
+            CalibrationStore(this).saveControls(displayedControlProfile, updated)
+            service?.setControlSettings(displayedControlProfile, updated)
         }
         percentSlider("Left sensitivity", settings.left, 50, 200, controlsPanel) { value -> update { it.copy(left = value) } }
         percentSlider("Right sensitivity", settings.right, 50, 200, controlsPanel) { value -> update { it.copy(right = value) } }
         percentSlider("Up / forward sensitivity", settings.up, 50, 200, controlsPanel) { value -> update { it.copy(up = value) } }
         percentSlider("Down / backward sensitivity", settings.down, 50, 200, controlsPanel) { value -> update { it.copy(down = value) } }
         percentSlider("Center dead zone", settings.deadZone, 0, 30, controlsPanel) { value -> update { it.copy(deadZone = value) } }
-        if (mode == 1) millisecondSlider("Key repeat interval", settings.repeatIntervalMs, MIN_KEY_REPEAT_MS,
+        if (displayedControlProfile == 1) millisecondSlider("Key repeat interval", settings.repeatIntervalMs, MIN_KEY_REPEAT_MS,
             MAX_KEY_REPEAT_MS, controlsPanel) { value -> update { it.copy(repeatIntervalMs = value) } }
     }
     private fun percentSlider(label: String, initial: Double, minimum: Int, maximum: Int, parent: LinearLayout = column,
@@ -218,10 +234,13 @@ class MainActivity : Activity() {
     private fun render(state: BridgeState) {
         status.text = state.status
         plot.stick = state.stick; plot.invalidate()
-        live.text = String.format(Locale.US, "X %+.2f   Y %+.2f\n%d packets/sec   •   Battery %s", state.stick.x, state.stick.y,
+        live.text = String.format(Locale.US, "X %+.2f   Y %+.2f\n%d packets/sec   •   BoBo battery %s", state.stick.x, state.stick.y,
             state.rate, state.battery?.let { "$it%" } ?: "—")
         output.text = state.outputMessage
-        if (displayedControlMode != state.mode || displayedControls != state.controls) showControlSettings(state.mode, state.controls)
+        val profile = if (state.mode == 2) displayedControlProfile else if (state.mode == 1) 1 else 0
+        val controls = if (profile == 0) state.analogControls else state.arrowControls
+        if (displayedOutputMode != state.mode || displayedControlProfile != profile || displayedControls != controls)
+            showControlSettings(state.mode, profile, controls)
         poses.forEach { (pose, button) ->
             button.text = "Capture ${pose.name.lowercase()}" + (state.counts[pose]?.let { " ✓ ($it)" } ?: "")
             button.isEnabled = state.connected && state.capture == null

@@ -43,8 +43,8 @@ This repository contains a working prototype, not a production release.
 5. Captures center, left, right, forward, and backward calibration poses.
 6. Projects live sensor vectors onto calibrated X/Y axes with smoothing and a
    dead zone.
-7. Sends either an analog gamepad or repeated arrow-key pulses through Android
-   UHID when Shizuku access is available.
+7. Sends an analog gamepad, repeated arrow-key pulses, or both virtual devices
+   together through Android UHID when Shizuku access is available.
 8. Offers a **Close BoBo Home** button that uses the same granted Shizuku access
    to stop `com.bobo.home` and release its BLE connection.
 
@@ -53,13 +53,15 @@ Shizuku. Shizuku is needed only for system-visible controller output.
 
 ## What the Windows app does
 
-The Windows app scans and connects directly through the operating system's BLE
-stack, captures the same five calibration poses, and emits global arrow-key
-pulses for as long as a direction remains tilted. It releases every held key
-when output stops, BLE disconnects, or the app closes. Four independent
-sensitivity sliders control left, right, forward, and backward movement; the
-dead-zone and key-repeat interval have separate sliders. Calibration and
-settings remain in the current user's local app-data folder.
+The Windows app continuously scans and connects directly through the operating
+system's BLE stack, captures the same five calibration poses, and automatically
+emits global arrow-key pulses for as long as a direction remains tilted. It
+releases every held key when BLE disconnects or the app closes, and resumes
+output after reconnection. Four independent sensitivity sliders control left,
+right, forward, and backward movement; the dead-zone and key-repeat interval
+have separate sliders. The displayed BoBo battery value is refreshed while
+connected and cleared on disconnect. Calibration and settings remain in the
+current user's local app-data folder.
 
 ## Why Shizuku is needed
 
@@ -151,13 +153,14 @@ the hardware checks that remain manual.
 4. Capture `CENTER`, `LEFT`, `RIGHT`, `UP`, and `DOWN`. `UP` means away from
    you. Hold each pose steady for three seconds.
 5. Finish calibration and verify the live dot follows the board.
-6. Start Shizuku and choose analog stick or arrow keys. WobblePad requests
+6. Start Shizuku and choose analog stick, arrow keys, or both. WobblePad requests
    controller access when necessary and keeps controller output running while
    the board is connected. Changing modes recreates the virtual controller
    automatically.
 7. Adjust the displayed sensitivity profile. Analog stick and arrow-key modes
-   retain separate directional sensitivity and center-dead-zone settings;
-   arrow-key mode also provides a repeat interval for held directions.
+   retain separate directional sensitivity and center-dead-zone settings. Both
+   mode lets you switch which profile is displayed while keeping both outputs
+   active; the arrow profile also provides a repeat interval.
 8. Open a controller-compatible app. Return to WobblePad or use its foreground
    notification to stop the bridge.
 
@@ -166,14 +169,14 @@ not included in this repository and is not transmitted by the app.
 
 ## Use on Windows
 
-1. Run `WobblePad.exe`, power on the board, and close other BLE clients.
-2. Scan, choose the board, and connect.
-3. Capture center, left, right, up/forward, and down/backward; then finish
+1. Run `WobblePad.exe`, power on the board, and close other BLE clients. The app
+   watches for the board and connects automatically.
+2. Capture center, left, right, up/forward, and down/backward; then finish
    calibration.
-4. Adjust any directional sensitivity, the center dead zone, or the key-repeat
+3. Adjust any directional sensitivity, the center dead zone, or the key-repeat
    interval.
-5. Start arrow output, then open an arrow-controlled game. Return to WobblePad
-   to stop output before disconnecting.
+4. Open an arrow-controlled game. Arrow output starts automatically whenever
+   the calibrated board is connected.
 
 ## BLE protocol
 
@@ -204,7 +207,7 @@ app only when the user chooses a destination through Android's document picker.
 Do not publish Bluetooth addresses or raw captures without sanitizing them.
 
 On Android, Shizuku grants elevated local capability. WobblePad limits its user
-service to creating and updating one virtual input device, releases all input
+service to creating and updating its virtual input devices, releases all input
 on stop or failure, and does not expose that service to other apps. See
 [SECURITY.md](SECURITY.md) for reporting and trust-boundary details.
 
