@@ -8,7 +8,7 @@ supported.
 
 ## Report a vulnerability
 
-Use [GitHub private vulnerability reporting](https://github.com/Ceratops-Code/Wobblepad/security/advisories/new).
+Use [GitHub private vulnerability reporting](https://github.com/Ceratops-Code/Wobblepad-Adapter/security/advisories/new).
 Do not open a public issue for a vulnerability before maintainers have had a
 reasonable opportunity to assess it.
 
