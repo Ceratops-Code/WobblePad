@@ -1,4 +1,4 @@
-"""Behavior tests for the Windows build and deployment entrypoints."""
+"""Behavior tests for Windows build, deployment, and test-result entrypoints."""
 
 from __future__ import annotations
 
@@ -23,6 +23,15 @@ def load_script(filename: str, module_name: str) -> types.ModuleType:
 
 BUILD = load_script("build-windows.py", "wobblepad_build_windows")
 DEPLOY = load_script("deploy-windows.py", "wobblepad_deploy_windows")
+RUN_TESTS = load_script("run-tests.py", "wobblepad_run_tests")
+
+
+class WindowsTestResultTests(unittest.TestCase):
+    def test_recorded_command_is_checkout_independent(self) -> None:
+        self.assertEqual(
+            RUN_TESTS.windows_test_command(),
+            ["python", "-m", "unittest", "discover", "-s", "windows-app/tests"],
+        )
 
 
 class BuildWindowsTests(unittest.TestCase):

@@ -358,7 +358,7 @@ def run_windows_tests(source: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """Run the Windows app's hardware-free model and input-transition tests."""
 
     evidence = EVIDENCE_ROOT / "windows-python.log"
-    command = [sys.executable, "-m", "unittest", "discover", "-s", "windows-app/tests"]
+    command = windows_test_command()
     evidence.parent.mkdir(parents=True, exist_ok=True)
     sys.path.insert(0, str(WINDOWS_SOURCE_ROOT))
     try:
@@ -376,6 +376,12 @@ def run_windows_tests(source: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     return exit_code, group_record(
         "windows-python", status, source, command, evidence, cases
     )
+
+
+def windows_test_command() -> list[str]:
+    """Describe the in-process Windows test run without checkout-specific paths."""
+
+    return ["python", "-m", "unittest", "discover", "-s", "windows-app/tests"]
 
 
 def main() -> int:
