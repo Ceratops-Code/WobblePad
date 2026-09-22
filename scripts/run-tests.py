@@ -35,22 +35,23 @@ WINDOWS_TEST_ROOT = ROOT / "windows-app" / "tests"
 WINDOWS_SOURCE_ROOT = ROOT / "windows-app" / "src"
 
 
-def gradle_environment() -> dict[str, str]:
+def gradle_environment(windows: bool | None = None) -> dict[str, str]:
     """Replace a stale inherited Java home with a valid Windows setting."""
 
     environment = os.environ.copy()
+    is_windows = os.name == "nt" if windows is None else windows
 
     def valid_home(value: str | None) -> pathlib.Path | None:
         if not value:
             return None
         home = pathlib.Path(os.path.expandvars(value.strip('"')))
-        executable = home / "bin" / ("java.exe" if os.name == "nt" else "java")
+        executable = home / "bin" / ("java.exe" if is_windows else "java")
         return home if executable.is_file() else None
 
     if valid_home(environment.get("JAVA_HOME")) is not None:
         return environment
     environment.pop("JAVA_HOME", None)
-    if os.name != "nt":
+    if not is_windows:
         return environment
 
     winreg: Any = importlib.import_module("winreg")

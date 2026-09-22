@@ -58,13 +58,13 @@ class BuildAndroidTests(unittest.TestCase):
             )
             with (
                 mock.patch.dict(BUILD.os.environ, {"JAVA_HOME": "Z:\\missing"}),
-                mock.patch.object(BUILD.os, "name", "nt"),
                 mock.patch.dict(sys.modules, {"winreg": fake_winreg}),
             ):
                 for module in (BUILD, RUN_TESTS, VALIDATE):
                     with self.subTest(module=module.__name__):
                         self.assertEqual(
-                            module.gradle_environment()["JAVA_HOME"], str(java_home)
+                            module.gradle_environment(windows=True)["JAVA_HOME"],
+                            str(java_home),
                         )
 
     def test_build_command_has_one_owned_gradle_task(self) -> None:

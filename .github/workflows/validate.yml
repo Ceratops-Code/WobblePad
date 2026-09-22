@@ -64,4 +64,4 @@ jobs:
           include-hidden-files: true
           path: |
             ${{ runner.temp }}/sdlc-validation.json
-            .test-results/evidence/validation.log
+            .test-results/evidence/*.log
