@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ctypes
 import os
+import time
 from ctypes import wintypes
 from typing import Callable
 
@@ -66,28 +67,58 @@ def send_key(virtual_key: int, pressed: bool) -> None:
 
 
 class ArrowKeyEmitter:
-    """Emit only key transitions and release every held key on stop or failure."""
+    """Pulse requested arrows repeatedly and release every held key on stop."""
 
-    def __init__(self, sender: Callable[[int, bool], None] = send_key) -> None:
+    def __init__(
+        self,
+        sender: Callable[[int, bool], None] = send_key,
+        repeat_interval: float = 0.333,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._sender = sender
+        self._clock = clock
+        self._repeat_interval = self._normalize_interval(repeat_interval)
+        self._requested = 0
         self._pressed = 0
+        self._release_at = 0.0
+        self._next_repeat = 0.0
 
     @property
     def pressed(self) -> int:
         return self._pressed
 
+    def set_repeat_interval(self, seconds: float) -> None:
+        """Apply a bounded interval and restart the active repeat schedule."""
+
+        self._repeat_interval = self._normalize_interval(seconds)
+        if self._requested:
+            self._next_repeat = self._clock() + self._repeat_interval
+
     def update(self, keys: int) -> None:
         keys &= 0x0F
+        now = self._clock()
+        if keys != self._requested:
+            self._release_pressed()
+            self._requested = keys
+            if keys:
+                self._press(keys)
+                self._release_at = now + min(0.060, self._repeat_interval / 2)
+                self._next_repeat = now + self._repeat_interval
+            return
+        if self._pressed and now >= self._release_at:
+            self._release_pressed()
+        if self._requested and not self._pressed and now >= self._next_repeat:
+            self._press(self._requested)
+            self._release_at = now + min(0.060, self._repeat_interval / 2)
+            self._next_repeat = now + self._repeat_interval
+
+    def _press(self, keys: int) -> None:
         for bit, virtual_key in KEYS.items():
-            if self._pressed & bit and not keys & bit:
-                self._sender(virtual_key, False)
-                self._pressed &= ~bit
-        for bit, virtual_key in KEYS.items():
-            if keys & bit and not self._pressed & bit:
+            if keys & bit:
                 self._sender(virtual_key, True)
                 self._pressed |= bit
 
-    def release_all(self) -> None:
+    def _release_pressed(self) -> None:
         first_error: Exception | None = None
         for bit, virtual_key in KEYS.items():
             if self._pressed & bit:
@@ -100,3 +131,13 @@ class ArrowKeyEmitter:
                     self._pressed &= ~bit
         if first_error is not None:
             raise first_error
+
+    def release_all(self) -> None:
+        self._requested = 0
+        self._release_at = 0.0
+        self._next_repeat = 0.0
+        self._release_pressed()
+
+    @staticmethod
+    def _normalize_interval(seconds: float) -> float:
+        return min(1.0, max(0.1, seconds))

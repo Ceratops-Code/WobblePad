@@ -120,7 +120,7 @@ class PersistenceTests(unittest.TestCase):
     def test_settings_and_calibration_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = pathlib.Path(temporary) / "settings.json"
-            controls = ControlSettings(left=1.2, dead_zone=0.12)
+            controls = ControlSettings(left=1.2, dead_zone=0.12, repeat_interval_ms=420)
             save_state(path, controls, {"board": calibration_samples()})
             loaded_controls, boards = load_state(path)
             self.assertEqual(loaded_controls, controls)

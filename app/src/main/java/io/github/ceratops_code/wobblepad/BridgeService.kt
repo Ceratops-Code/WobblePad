@@ -55,6 +55,7 @@ class BridgeService : Service() {
     private val samples = mutableMapOf<Pose, List<DoubleArray>>()
     private var samplesAddress: String? = null
     private var mapper: JoystickMapper? = null
+    private val keyRepeater = KeyPulseRepeater()
     private var wantOutput = false
     private val packetTimes = ArrayDeque<Long>()
     private val csv = ArrayDeque<String>()
@@ -65,6 +66,7 @@ class BridgeService : Service() {
         super.onCreate()
         calibration = CalibrationStore(this)
         state = state.copy(mode = calibration.mode, controls = calibration.controls)
+        keyRepeater.setInterval(calibration.controls.repeatIntervalMs)
         controller = ControllerLink(this) { ready, message ->
             if (!ready && !controller.binding) wantOutput = false
             state = state.copy(output = ready && wantOutput, outputMessage = message)
@@ -187,7 +189,7 @@ class BridgeService : Service() {
     }
     private fun recover(reason: String) {
         ++generation
-        controller.send(Stick()); mapper?.reset(); cancelCapture()
+        controller.send(Stick()); mapper?.reset(); keyRepeater.reset(); cancelCapture()
         state = state.copy(connected = false, stick = Stick(), rate = 0, status = "$reason. Input paused.")
         publish()
         val token = generation
@@ -215,7 +217,10 @@ class BridgeService : Service() {
         if (++stablePackets >= 100) reconnects = 0
         pendingPose?.let { if (pendingSamples.size < 500) pendingSamples.add(raw) }
         val stick = if (pendingPose == null) mapper?.update(raw) ?: Stick() else Stick()
-        if (wantOutput) controller.send(stick)
+        if (wantOutput) {
+            val report = if (state.mode == 1) stick.copy(keys = keyRepeater.update(stick.keys, now)) else stick
+            controller.send(report)
+        }
         val pose = pendingPose?.name.orEmpty()
         csv.addLast("${Instant.now()},$pose,${raw.joinToString(",") { it.toInt().toString() }},${stick.x},${stick.y},${stick.keys}")
         while (csv.size > 10000) csv.removeFirst()
@@ -257,11 +262,12 @@ class BridgeService : Service() {
         }.onSuccess { state = state.copy(calibrated = true); message("Calibration saved.") }
             .onFailure { message(it.message ?: "Calibration could not be saved") }
     }
-    fun setMode(mode: Int) { stopOutput(); calibration.mode = mode; state = state.copy(mode = mode); publish() }
+    fun setMode(mode: Int) { stopOutput(); keyRepeater.reset(); calibration.mode = mode; state = state.copy(mode = mode); publish() }
     fun setControlSettings(settings: ControlSettings) {
         val normalized = settings.normalized()
         calibration.controls = normalized
         mapper?.setControlSettings(normalized)
+        keyRepeater.setInterval(normalized.repeatIntervalMs)
         state = state.copy(controls = normalized)
         publish()
     }
@@ -269,11 +275,12 @@ class BridgeService : Service() {
         if (!state.connected || mapper == null || pendingPose != null || SystemClock.elapsedRealtime() - lastPacket > 1000) {
             message("Connect BoBo and finish calibration before starting output."); return
         }
-        wantOutput = true; mapper?.reset()
+        wantOutput = true; mapper?.reset(); keyRepeater.reset()
         runCatching { controller.start(state.mode) }.onFailure { wantOutput = false; message(it.message ?: "Controller access failed") }
     }
     fun stopOutput() {
         wantOutput = false
+        keyRepeater.reset()
         if (::controller.isInitialized) controller.stop()
         state = state.copy(output = false, outputMessage = "Controller output is stopped"); publish()
     }

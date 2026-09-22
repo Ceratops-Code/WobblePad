@@ -43,8 +43,8 @@ This repository contains a working prototype, not a production release.
 5. Captures center, left, right, forward, and backward calibration poses.
 6. Projects live sensor vectors onto calibrated X/Y axes with smoothing and a
    dead zone.
-7. Sends either an analog gamepad or arrow-key device through Android UHID when
-   Shizuku access is available.
+7. Sends either an analog gamepad or repeated arrow-key pulses through Android
+   UHID when Shizuku access is available.
 
 Live BLE display, calibration, packet rate, and CSV export work without
 Shizuku. Shizuku is needed only for system-visible controller output.
@@ -53,11 +53,11 @@ Shizuku. Shizuku is needed only for system-visible controller output.
 
 The Windows app scans and connects directly through the operating system's BLE
 stack, captures the same five calibration poses, and emits global arrow-key
-transitions. It releases every held key when output stops, BLE disconnects, or
-the app closes. Four independent sensitivity sliders control left, right,
-forward, and backward movement; a separate dead-zone slider controls neutral
-movement. Calibration and settings remain in the current user's local app-data
-folder.
+pulses for as long as a direction remains tilted. It releases every held key
+when output stops, BLE disconnects, or the app closes. Four independent
+sensitivity sliders control left, right, forward, and backward movement; the
+dead-zone and key-repeat interval have separate sliders. Calibration and
+settings remain in the current user's local app-data folder.
 
 ## Why Shizuku is needed
 
@@ -160,7 +160,8 @@ not included in this repository and is not transmitted by the app.
 2. Scan, choose the board, and connect.
 3. Capture center, left, right, up/forward, and down/backward; then finish
    calibration.
-4. Adjust any directional sensitivity or the center dead zone.
+4. Adjust any directional sensitivity, the center dead zone, or the key-repeat
+   interval.
 5. Start arrow output, then open an arrow-controlled game. Return to WobblePad
    to stop output before disconnecting.
 
