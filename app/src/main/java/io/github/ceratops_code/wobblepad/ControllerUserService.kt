@@ -85,8 +85,22 @@ class ControllerUserService : IController.Stub() {
         fd = null; lastReport = byteArrayOf()
     }
     @Synchronized override fun status(): String = "uid=${Process.myUid()};open=${fd != null};$error"
+    @Synchronized override fun closeBoBoHome(): String = try {
+        val process = ProcessBuilder("/system/bin/am", "force-stop", "--user", "current", BOBO_HOME_PACKAGE)
+            .redirectErrorStream(true).start()
+        if (!process.waitFor(5, TimeUnit.SECONDS)) {
+            process.destroyForcibly()
+            "Closing BoBo Home timed out."
+        } else {
+            val output = process.inputStream.bufferedReader().use { it.readText().trim() }
+            if (process.exitValue() == 0) "" else "Could not close BoBo Home: ${output.ifBlank { "exit ${process.exitValue()}" }}"
+        }
+    } catch (e: Exception) {
+        "Could not close BoBo Home: ${e.message}"
+    }
     override fun destroy() { close(); timer.shutdownNow(); kotlin.system.exitProcess(0) }
     companion object {
+        private const val BOBO_HOME_PACKAGE = "com.bobo.home"
         fun name(mode: Int) = if (mode == 0) "WobblePad Gamepad" else "WobblePad Keys"
         private fun hex(text: String) = text.split(" ").map { it.toInt(16).toByte() }.toByteArray()
         // Input-only descriptors need no LED, output or feature-report transport.

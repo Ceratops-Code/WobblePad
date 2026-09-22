@@ -9,6 +9,7 @@ import android.content.*
 import android.content.pm.PackageManager
 import android.os.*
 import android.util.Log
+import android.widget.Toast
 import no.nordicsemi.android.ble.observer.ConnectionObserver
 import org.json.JSONObject
 import java.io.FileDescriptor
@@ -55,7 +56,11 @@ class BridgeService : Service() {
     private val samples = mutableMapOf<Pose, List<DoubleArray>>()
     private var samplesAddress: String? = null
     private var mapper: JoystickMapper? = null
+    private val keyRepeater = KeyPulseRepeater()
     private var wantOutput = false
+    private var autoDiscover = false
+    private var autoOutputPending = false
+    private var controllerReadyToastShown = false
     private val packetTimes = ArrayDeque<Long>()
     private val csv = ArrayDeque<String>()
     @Volatile var state = BridgeState(); private set
@@ -65,9 +70,11 @@ class BridgeService : Service() {
         super.onCreate()
         calibration = CalibrationStore(this)
         state = state.copy(mode = calibration.mode, controls = calibration.controls)
+        keyRepeater.setInterval(calibration.controls.repeatIntervalMs)
         controller = ControllerLink(this) { ready, message ->
             if (!ready && !controller.binding) wantOutput = false
             state = state.copy(output = ready && wantOutput, outputMessage = message)
+            showControllerReadyToast()
             publish()
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -93,6 +100,12 @@ class BridgeService : Service() {
     private fun permissions() = checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
         checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
     private fun publish() { listener?.invoke(state) }
+    private fun showControllerReadyToast() {
+        val packetIsLive = lastPacket > 0 && SystemClock.elapsedRealtime() - lastPacket <= 1000
+        if (controllerReadyToastShown || !state.connected || !state.output || !packetIsLive) return
+        controllerReadyToastShown = true
+        Toast.makeText(applicationContext, "BoBo connected — controller active", Toast.LENGTH_SHORT).show()
+    }
     fun message(text: String) {
         messageUntil = SystemClock.elapsedRealtime() + 6000
         state = state.copy(status = text); Log.i("WobblePad", text); publish()
@@ -108,32 +121,70 @@ class BridgeService : Service() {
                 state = state.copy(boards = state.boards + Board(result.device.address, name.ifBlank { "BoBo" }))
                 publish()
             }
+            if (autoDiscover) {
+                stopScan()
+                message("BoBo found. Connecting automatically…")
+                connect(result.device.address, automatic = true)
+            }
         }
-        override fun onScanFailed(errorCode: Int) { stopScan(); message("Bluetooth scan failed ($errorCode). Check Bluetooth and try again.") }
+        override fun onScanFailed(errorCode: Int) {
+            stopScan()
+            if (autoDiscover) {
+                message("Bluetooth scan paused ($errorCode). Retrying automatically…")
+                handler.postDelayed(scanAgain, SCAN_RETRY_MS)
+            } else message("Bluetooth scan failed ($errorCode). Check Bluetooth and try again.")
+        }
     }
     fun scan() {
         if (!permissions()) { message("Allow Nearby Devices to find BoBo."); return }
         if (adapter?.isEnabled != true) { message("Turn on Bluetooth, then scan again."); return }
+        autoDiscover = true
+        autoOutputPending = true
+        keepRunning()
+        startScanCycle()
+    }
+    private fun startScanCycle() {
+        if (!autoDiscover || !permissions() || state.connected) return
+        if (adapter?.isEnabled != true) {
+            message("Bluetooth is off. Waiting for it to turn on…")
+            handler.postDelayed(scanAgain, SCAN_RETRY_MS)
+            return
+        }
+        handler.removeCallbacks(scanAgain)
         stopScan()
         state = state.copy(scanning = true, boards = emptyList(), status = "Looking for BoBo…")
         try {
             scanner = adapter.bluetoothLeScanner
             scanner?.startScan(null, ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(), scanCallback)
             handler.postDelayed(scanEnd, 10000)
-        } catch (e: Exception) { stopScan(); message("Could not scan: ${e.message}") }
+        } catch (e: Exception) {
+            stopScan(); message("Could not scan: ${e.message}. Retrying automatically…")
+            handler.postDelayed(scanAgain, SCAN_RETRY_MS)
+        }
         publish()
     }
-    private val scanEnd = Runnable { stopScan(); message(if (state.boards.isEmpty()) "No BoBo found. Keep it awake and disconnect other BoBo apps." else "Choose your BoBo below.") }
+    private val scanAgain = Runnable { startScanCycle() }
+    private val scanEnd = Runnable {
+        stopScan()
+        if (autoDiscover) {
+            message("BoBo is not visible yet. Watching for it…")
+            handler.postDelayed(scanAgain, SCAN_RETRY_MS)
+        } else message("No BoBo found. Keep it awake and disconnect other BoBo apps.")
+    }
     private fun stopScan() {
         handler.removeCallbacks(scanEnd)
         runCatching { scanner?.stopScan(scanCallback) }; scanner = null
         state = state.copy(scanning = false)
     }
-    fun connect(address: String) {
+    fun connect(address: String, automatic: Boolean = false) {
         if (!permissions()) { message("Allow Nearby Devices first."); return }
         if (adapter?.isEnabled != true) { message("Turn on Bluetooth first."); return }
         val keepCalibration = address.equals(samplesAddress, ignoreCase = true)
-        disconnect()
+        if (!automatic) autoDiscover = false
+        handler.removeCallbacks(scanAgain)
+        ++generation; stopScan(); stopOutput(); cancelCapture(); retireClient()
+        lastPacket = 0; readyAt = 0; mapper?.reset()
+        autoOutputPending = automatic
         keepRunning()
         if (!keepCalibration) {
             samples.clear(); mapper = null; samplesAddress = address
@@ -149,7 +200,7 @@ class BridgeService : Service() {
     private fun connectAttempt() {
         val address = state.address ?: return
         val token = ++generation
-        lastPacket = 0; readyAt = 0; stablePackets = 0; packetTimes.clear()
+        lastPacket = 0; readyAt = 0; stablePackets = 0; packetTimes.clear(); controllerReadyToastShown = false
         message(if (reconnects == 0) "Connecting to BoBo…" else "Reconnecting to BoBo ($reconnects/3)…")
         try {
             val client = BalanceBoardBLEManager(this, { bytes -> if (token == generation) onPacket(bytes) },
@@ -187,7 +238,7 @@ class BridgeService : Service() {
     }
     private fun recover(reason: String) {
         ++generation
-        controller.send(Stick()); mapper?.reset(); cancelCapture()
+        controller.send(Stick()); mapper?.reset(); keyRepeater.reset(); cancelCapture()
         state = state.copy(connected = false, stick = Stick(), rate = 0, status = "$reason. Input paused.")
         publish()
         val token = generation
@@ -195,6 +246,12 @@ class BridgeService : Service() {
             if (token == generation && state.address != null) {
                 if (++reconnects <= 3 && permissions() && adapter?.isEnabled == true) {
                     handler.postDelayed({ if (token == generation) connectAttempt() }, 500)
+                } else if (autoDiscover) {
+                    reconnects = 0
+                    autoOutputPending = !wantOutput
+                    state = state.copy(address = null, connected = false, stick = Stick(), rate = 0)
+                    message("$reason. Watching for BoBo to return…")
+                    handler.postDelayed(scanAgain, SCAN_RETRY_MS)
                 } else {
                     stopOutput(); message("$reason. Reconnect stopped. Check BoBo is on, tap Scan for BoBo, then connect.")
                 }
@@ -202,8 +259,9 @@ class BridgeService : Service() {
         }
     }
     fun disconnect() {
+        autoDiscover = false; autoOutputPending = false; handler.removeCallbacks(scanAgain)
         ++generation; stopScan(); stopOutput(); cancelCapture(); retireClient()
-        lastPacket = 0; readyAt = 0; mapper?.reset()
+        lastPacket = 0; readyAt = 0; controllerReadyToastShown = false; mapper?.reset()
         state = state.copy(address = null, connected = false, stick = Stick(), rate = 0, status = "Disconnected")
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); publish()
     }
@@ -213,9 +271,16 @@ class BridgeService : Service() {
         val now = SystemClock.elapsedRealtime()
         lastPacket = now; packetTimes.addLast(now)
         if (++stablePackets >= 100) reconnects = 0
+        if (autoOutputPending && state.connected && mapper != null && pendingPose == null) {
+            autoOutputPending = false
+            startOutput()
+        }
         pendingPose?.let { if (pendingSamples.size < 500) pendingSamples.add(raw) }
         val stick = if (pendingPose == null) mapper?.update(raw) ?: Stick() else Stick()
-        if (wantOutput) controller.send(stick)
+        if (wantOutput) {
+            val report = if (state.mode == 1) stick.copy(keys = keyRepeater.update(stick.keys, now)) else stick
+            controller.send(report)
+        }
         val pose = pendingPose?.name.orEmpty()
         csv.addLast("${Instant.now()},$pose,${raw.joinToString(",") { it.toInt().toString() }},${stick.x},${stick.y},${stick.keys}")
         while (csv.size > 10000) csv.removeFirst()
@@ -223,6 +288,7 @@ class BridgeService : Service() {
             hex = bytes.joinToString("-") { "%02X".format(it.toInt() and 255) }, stick = stick,
             status = if (pendingPose != null) "Hold ${pendingPose!!.name.lowercase()}: ${pendingSamples.size} packets"
                 else if (now < messageUntil) state.status else "Receiving BoBo tilt")
+        showControllerReadyToast()
     }
     private val tick = object : Runnable {
         override fun run() {
@@ -257,11 +323,20 @@ class BridgeService : Service() {
         }.onSuccess { state = state.copy(calibrated = true); message("Calibration saved.") }
             .onFailure { message(it.message ?: "Calibration could not be saved") }
     }
-    fun setMode(mode: Int) { stopOutput(); calibration.mode = mode; state = state.copy(mode = mode); publish() }
+    fun closeBoBoHome() {
+        message("Closing BoBo Home…")
+        runCatching {
+            controller.closeBoBoHome { result ->
+                message(if (result.isBlank()) "BoBo Home closed." else result)
+            }
+        }.onFailure { message(it.message ?: "Could not close BoBo Home") }
+    }
+    fun setMode(mode: Int) { stopOutput(); keyRepeater.reset(); calibration.mode = mode; state = state.copy(mode = mode); publish() }
     fun setControlSettings(settings: ControlSettings) {
         val normalized = settings.normalized()
         calibration.controls = normalized
         mapper?.setControlSettings(normalized)
+        keyRepeater.setInterval(normalized.repeatIntervalMs)
         state = state.copy(controls = normalized)
         publish()
     }
@@ -269,11 +344,14 @@ class BridgeService : Service() {
         if (!state.connected || mapper == null || pendingPose != null || SystemClock.elapsedRealtime() - lastPacket > 1000) {
             message("Connect BoBo and finish calibration before starting output."); return
         }
-        wantOutput = true; mapper?.reset()
+        autoOutputPending = false
+        wantOutput = true; mapper?.reset(); keyRepeater.reset()
         runCatching { controller.start(state.mode) }.onFailure { wantOutput = false; message(it.message ?: "Controller access failed") }
     }
     fun stopOutput() {
+        autoOutputPending = false
         wantOutput = false
+        keyRepeater.reset()
         if (::controller.isInitialized) controller.stop()
         state = state.copy(output = false, outputMessage = "Controller output is stopped"); publish()
     }
@@ -286,6 +364,7 @@ class BridgeService : Service() {
             .put("packets", s.packets).put("rejected", s.rejected).put("rate", s.rate).put("battery", s.battery)
             .put("raw", s.raw).put("hex", s.hex).put("x", s.stick.x).put("y", s.stick.y).put("keys", s.stick.keys)
             .put("output", s.output).put("mode", s.mode).put("outputMessage", s.outputMessage)
+            .put("autoDiscover", autoDiscover).put("autoOutputPending", autoOutputPending)
             .put("reconnects", reconnects).put("lastPacketAgeMs", if (lastPacket == 0L) -1 else SystemClock.elapsedRealtime() - lastPacket))
     }
     override fun onDestroy() {
@@ -293,5 +372,9 @@ class BridgeService : Service() {
         retiringClients.forEach { it.close() }; retiringClients.clear()
         handler.removeCallbacksAndMessages(null); listener = null
         super.onDestroy()
+    }
+
+    private companion object {
+        const val SCAN_RETRY_MS = 2500L
     }
 }

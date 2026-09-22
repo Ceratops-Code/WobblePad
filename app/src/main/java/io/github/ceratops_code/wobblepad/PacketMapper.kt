@@ -6,6 +6,10 @@ import kotlin.math.*
 
 enum class Pose { CENTER, LEFT, RIGHT, UP, DOWN }
 
+const val DEFAULT_KEY_REPEAT_MS = 333
+const val MIN_KEY_REPEAT_MS = 100
+const val MAX_KEY_REPEAT_MS = 1000
+
 /** The observed frame has nine signed fields; their physical meanings are not assumed. */
 object PacketParser {
     fun parse(packet: ByteArray): DoubleArray? {
@@ -23,6 +27,7 @@ data class ControlSettings(
     val up: Double = 1.0,
     val down: Double = 1.0,
     val deadZone: Double = 0.08,
+    val repeatIntervalMs: Int = DEFAULT_KEY_REPEAT_MS,
 ) {
     fun normalized() = ControlSettings(
         left = left.coerceIn(0.5, 2.0),
@@ -30,7 +35,46 @@ data class ControlSettings(
         up = up.coerceIn(0.5, 2.0),
         down = down.coerceIn(0.5, 2.0),
         deadZone = deadZone.coerceIn(0.0, 0.30),
+        repeatIntervalMs = repeatIntervalMs.coerceIn(MIN_KEY_REPEAT_MS, MAX_KEY_REPEAT_MS),
     )
+}
+
+/** Converts a held logical direction into short reports separated by neutral reports. */
+class KeyPulseRepeater(intervalMs: Int = DEFAULT_KEY_REPEAT_MS) {
+    private var intervalMs = intervalMs.coerceIn(MIN_KEY_REPEAT_MS, MAX_KEY_REPEAT_MS)
+    private var requested = 0
+    private var pulseUntil = 0L
+    private var nextPulse = 0L
+
+    fun setInterval(value: Int) {
+        intervalMs = value.coerceIn(MIN_KEY_REPEAT_MS, MAX_KEY_REPEAT_MS)
+        reset()
+    }
+
+    fun reset() {
+        requested = 0
+        pulseUntil = 0L
+        nextPulse = 0L
+    }
+
+    fun update(keys: Int, nowMs: Long = System.nanoTime() / 1_000_000): Int {
+        val next = keys and 0x0F
+        if (next == 0) {
+            reset()
+            return 0
+        }
+        if (next != requested) {
+            requested = next
+            pulseUntil = nowMs + min(60, intervalMs / 2).toLong()
+            nextPulse = nowMs + intervalMs
+            return requested
+        }
+        if (nowMs >= nextPulse) {
+            pulseUntil = nowMs + min(60, intervalMs / 2).toLong()
+            nextPulse = nowMs + intervalMs
+        }
+        return if (nowMs < pulseUntil) requested else 0
+    }
 }
 
 /** Least-squares calibration plus a time-based filter, radial dead zone and key hysteresis. */

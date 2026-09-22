@@ -104,6 +104,29 @@ class JoystickMapperTest {
     }
 
     @Test
+    fun heldDirectionProducesConfigurableRepeatedKeyPulses() {
+        val repeater = KeyPulseRepeater(333)
+
+        assertEquals(1, repeater.update(1, 0))
+        assertEquals(1, repeater.update(1, 59))
+        assertEquals(0, repeater.update(1, 60))
+        assertEquals(0, repeater.update(1, 332))
+        assertEquals(1, repeater.update(1, 333))
+        assertEquals(0, repeater.update(1, 393))
+
+        repeater.setInterval(200)
+        assertEquals(1, repeater.update(1, 400))
+        assertEquals(0, repeater.update(1, 460))
+        assertEquals(1, repeater.update(1, 600))
+    }
+
+    @Test
+    fun repeatIntervalIsBoundedWithTheOtherControls() {
+        assertEquals(MIN_KEY_REPEAT_MS, ControlSettings(repeatIntervalMs = 1).normalized().repeatIntervalMs)
+        assertEquals(MAX_KEY_REPEAT_MS, ControlSettings(repeatIntervalMs = 5_000).normalized().repeatIntervalMs)
+    }
+
+    @Test
     fun diagonalOutputIsClampedRadially() {
         val mapper = JoystickMapper.calibrate(calibration())
 

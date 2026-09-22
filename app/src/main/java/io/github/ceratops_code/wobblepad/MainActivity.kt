@@ -49,12 +49,13 @@ class MainActivity : Activity() {
         title("Turn your balance board into an Android gamepad.", 15)
         title("Unofficial controller bridge compatible with BoBo Wobbly. Not affiliated with BO&BO Ltd.", 12)
         status = title("Starting…", 17)
-        row(button("Scan for BoBo") { scan() }, button("Disconnect") { service?.disconnect() })
+        row(button("Scan & auto-connect") { scan() }, button("Disconnect") { service?.disconnect() })
         boards = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }; column.addView(boards)
         plot = StickView(this); column.addView(plot, LinearLayout.LayoutParams(-1, dp(210)))
         live = title("X 0.00   Y 0.00", 19)
         access = title("", 14)
         row(button("Shizuku setup") { openShizuku() }, button("Allow controller access") { requestShizuku() })
+        column.addView(button("Close BoBo Home") { service?.closeBoBoHome() })
         output = title("Controller output is stopped", 15)
         val modes = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
         listOf("Analog stick", "Arrow keys").forEachIndexed { i, text ->
@@ -85,6 +86,9 @@ class MainActivity : Activity() {
         }
         percentSlider("Center dead zone", initialControls.deadZone, 0, 30) { value ->
             updateControls { it.copy(deadZone = value) }
+        }
+        millisecondSlider("Key repeat interval", initialControls.repeatIntervalMs, MIN_KEY_REPEAT_MS, MAX_KEY_REPEAT_MS) { value ->
+            updateControls { it.copy(repeatIntervalMs = value) }
         }
         start = button("Start controller output") { service?.startOutput() }
         row(start, button("Stop output") { service?.stopOutput() })
@@ -122,18 +126,22 @@ class MainActivity : Activity() {
     private fun row(vararg views: View) { column.addView(LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; views.forEach { addView(it, LinearLayout.LayoutParams(0, -2, 1f)) }
     }) }
-    private fun percentSlider(label: String, initial: Double, minimum: Int, maximum: Int, onChange: (Double) -> Unit) {
+    private fun percentSlider(label: String, initial: Double, minimum: Int, maximum: Int, onChange: (Double) -> Unit) =
+        integerSlider(label, (initial * 100).roundToInt(), minimum, maximum, "%") { onChange(it / 100.0) }
+    private fun millisecondSlider(label: String, initial: Int, minimum: Int, maximum: Int, onChange: (Int) -> Unit) =
+        integerSlider(label, initial, minimum, maximum, " ms", onChange)
+    private fun integerSlider(label: String, initial: Int, minimum: Int, maximum: Int, suffix: String, onChange: (Int) -> Unit) {
         val value = title("", 14)
         val slider = SeekBar(this).apply {
             max = maximum - minimum
-            progress = (initial * 100).roundToInt().coerceIn(minimum, maximum) - minimum
+            progress = initial.coerceIn(minimum, maximum) - minimum
         }
-        fun render(progress: Int) { value.text = "$label: ${minimum + progress}%" }
+        fun render(progress: Int) { value.text = "$label: ${minimum + progress}$suffix" }
         render(slider.progress)
         slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 render(progress)
-                if (fromUser) onChange((minimum + progress) / 100.0)
+                if (fromUser) onChange(minimum + progress)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
             override fun onStopTrackingTouch(seekBar: SeekBar) {}

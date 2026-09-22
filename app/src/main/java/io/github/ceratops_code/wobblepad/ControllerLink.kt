@@ -17,10 +17,14 @@ class ControllerLink(private val context: Context, private val changed: (Boolean
     private val latest = AtomicReference<Stick?>()
     private val args = Shizuku.UserServiceArgs(ComponentName(context, ControllerUserService::class.java))
         .daemon(false).processNameSuffix("wobblepad_input").debuggable(BuildConfig.DEBUG).version(BuildConfig.VERSION_CODE)
+    private val commandArgs = Shizuku.UserServiceArgs(ComponentName(context, ControllerUserService::class.java))
+        .daemon(false).processNameSuffix("wobblepad_command").debuggable(BuildConfig.DEBUG).version(BuildConfig.VERSION_CODE)
     @Volatile private var remote: IController? = null
     @Volatile private var wanted = false
     private var mode = 0
     private var generation = 0
+    private var commandConnection: ServiceConnection? = null
+    private var commandResult: ((String) -> Unit)? = null
     var ready = false; private set
     var binding = false; private set
     private val connection = object : ServiceConnection {
@@ -70,13 +74,63 @@ class ControllerLink(private val context: Context, private val changed: (Boolean
         } else fail("Android did not register the controller. This device's input access needs checking.")
     }
     fun send(stick: Stick) { if (ready) latest.set(stick) }
+    fun closeBoBoHome(completed: (String) -> Unit) {
+        check(available()) { "Start Shizuku and allow WobblePad to use it first." }
+        remote?.let { service ->
+            sender.execute {
+                val result = runCatching { service.closeBoBoHome() }
+                    .getOrElse { "Could not close BoBo Home: ${it.message}" }
+                handler.post { completed(result) }
+            }
+            return
+        }
+        check(commandConnection == null) { "BoBo Home is already being closed." }
+        lateinit var connection: ServiceConnection
+        connection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+                val service = IController.Stub.asInterface(binder)
+                sender.execute {
+                    val result = runCatching { service.closeBoBoHome() }
+                        .getOrElse { "Could not close BoBo Home: ${it.message}" }
+                    handler.post { if (commandConnection === connection) finishCommand(result) }
+                }
+            }
+            override fun onServiceDisconnected(name: ComponentName) {
+                if (commandConnection === connection) finishCommand("BoBo Home command service stopped unexpectedly.")
+            }
+        }
+        commandConnection = connection
+        commandResult = completed
+        try {
+            Shizuku.bindUserService(commandArgs, connection)
+        } catch (e: Exception) {
+            commandConnection = null
+            commandResult = null
+            throw e
+        }
+        handler.postDelayed({
+            if (commandConnection === connection) finishCommand("Closing BoBo Home timed out.")
+        }, 10000)
+    }
+    private fun finishCommand(message: String) {
+        val connection = commandConnection ?: return
+        commandConnection = null
+        val completed = commandResult
+        commandResult = null
+        runCatching { Shizuku.unbindUserService(commandArgs, connection, true) }
+        completed?.invoke(message)
+    }
     private fun fail(message: String) { stop(); changed(false, message) }
     fun stop() {
         generation++; wanted = false; ready = false; binding = false; latest.set(null)
         remote = null
         runCatching { Shizuku.unbindUserService(args, connection, true) }
     }
-    fun shutdown() { stop(); sender.shutdownNow() }
+    fun shutdown() {
+        commandConnection?.let { runCatching { Shizuku.unbindUserService(commandArgs, it, true) } }
+        commandConnection = null; commandResult = null
+        stop(); sender.shutdownNow()
+    }
     companion object {
         fun available() = runCatching { Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED }.getOrDefault(false)
     }

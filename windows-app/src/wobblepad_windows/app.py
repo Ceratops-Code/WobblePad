@@ -78,9 +78,9 @@ class WobblePadApp:
             lambda packet: self.events.put(("packet", packet)),
             lambda text, connected: self.events.put(("status", (text, connected))),
         )
-        self.keyboard = ArrowKeyEmitter()
         self.state_file = settings_path()
         self.controls, self.saved_samples = load_state(self.state_file)
+        self.keyboard = ArrowKeyEmitter(repeat_interval=self.controls.repeat_interval_ms / 1000)
         self.boards: dict[str, Board] = {}
         self.current_address: str | None = None
         self.samples: dict[Pose, list[Vector]] = {}
@@ -158,8 +158,25 @@ class WobblePadApp:
         self._add_slider(sensitivity, "up", "Up / forward", self.controls.up * 100, 50, 200)
         self._add_slider(sensitivity, "down", "Down / backward", self.controls.down * 100, 50, 200)
         self._add_slider(sensitivity, "dead_zone", "Center dead zone", self.controls.dead_zone * 100, 0, 30)
-
-    def _add_slider(self, parent: tk.Misc, key: str, label: str, value: float, minimum: int, maximum: int) -> None:
+        self._add_slider(
+            sensitivity,
+            "repeat_interval_ms",
+            "Key repeat interval",
+            self.controls.repeat_interval_ms,
+            100,
+            1000,
+            " ms",
+        )
+    def _add_slider(
+        self,
+        parent: tk.Misc,
+        key: str,
+        label: str,
+        value: float,
+        minimum: int,
+        maximum: int,
+        suffix: str = "%",
+    ) -> None:
         row = ttk.Frame(parent)
         row.pack(fill="x", pady=2)
         shown = tk.StringVar()
@@ -167,7 +184,7 @@ class WobblePadApp:
         self.control_variables[key] = variable
 
         def render(raw: str) -> None:
-            shown.set(f"{label}: {float(raw):.0f}%")
+            shown.set(f"{label}: {float(raw):.0f}{suffix}")
 
         ttk.Label(row, textvariable=shown, width=28).pack(side="left")
         slider = ttk.Scale(row, variable=variable, from_=minimum, to=maximum, command=render)
@@ -182,7 +199,9 @@ class WobblePadApp:
             up=self.control_variables["up"].get() / 100,
             down=self.control_variables["down"].get() / 100,
             dead_zone=self.control_variables["dead_zone"].get() / 100,
+            repeat_interval_ms=round(self.control_variables["repeat_interval_ms"].get()),
         ).normalized()
+        self.keyboard.set_repeat_interval(self.controls.repeat_interval_ms / 1000)
         if self.mapper is not None:
             self.mapper.set_settings(self.controls)
         self._save()
@@ -256,7 +275,10 @@ class WobblePadApp:
 
     def stop_output(self) -> None:
         self.output_enabled = False
-        self.keyboard.release_all()
+        try:
+            self.keyboard.release_all()
+        except OSError as error:
+            self.status.set(f"Could not release an arrow key: {error}")
         self.output_status.set("Stopped")
 
     def _save(self) -> None:

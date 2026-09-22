@@ -18,6 +18,9 @@ from typing import Any, Mapping, Sequence
 
 SERVICE_UUID = "856b152a-734a-5546-bf2b-ed4898184e12"
 CHARACTERISTIC_UUID = "856b152b-734a-5546-bf2b-ed4898184e12"
+DEFAULT_KEY_REPEAT_MS = 333
+MIN_KEY_REPEAT_MS = 100
+MAX_KEY_REPEAT_MS = 1000
 Vector = tuple[float, ...]
 
 
@@ -33,13 +36,14 @@ class Pose(str, Enum):
 
 @dataclass(frozen=True)
 class ControlSettings:
-    """Independent directional gains and the radial neutral zone."""
+    """Directional gains, radial neutral zone, and arrow repeat interval."""
 
     left: float = 1.0
     right: float = 1.0
     up: float = 1.0
     down: float = 1.0
     dead_zone: float = 0.08
+    repeat_interval_ms: int = DEFAULT_KEY_REPEAT_MS
 
     def normalized(self) -> ControlSettings:
         return ControlSettings(
@@ -48,6 +52,7 @@ class ControlSettings:
             up=min(2.0, max(0.5, self.up)),
             down=min(2.0, max(0.5, self.down)),
             dead_zone=min(0.30, max(0.0, self.dead_zone)),
+            repeat_interval_ms=min(MAX_KEY_REPEAT_MS, max(MIN_KEY_REPEAT_MS, int(self.repeat_interval_ms))),
         )
 
     def as_dict(self) -> dict[str, float]:
@@ -58,6 +63,7 @@ class ControlSettings:
             "up": value.up,
             "down": value.down,
             "deadZone": value.dead_zone,
+            "repeatIntervalMs": value.repeat_interval_ms,
         }
 
     @classmethod
@@ -68,6 +74,7 @@ class ControlSettings:
             up=float(value.get("up", 1.0)),
             down=float(value.get("down", 1.0)),
             dead_zone=float(value.get("deadZone", 0.08)),
+            repeat_interval_ms=int(value.get("repeatIntervalMs", DEFAULT_KEY_REPEAT_MS)),
         ).normalized()
 
 

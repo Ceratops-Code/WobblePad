@@ -43,6 +43,7 @@ class CalibrationStore(private val context: Context) {
             up = prefs.getFloat("sensitivity:up", 1f).toDouble(),
             down = prefs.getFloat("sensitivity:down", 1f).toDouble(),
             deadZone = prefs.getFloat("dead-zone", 0.08f).toDouble(),
+            repeatIntervalMs = prefs.getInt("key-repeat-ms", DEFAULT_KEY_REPEAT_MS),
         ).normalized()
         set(value) {
             val normalized = value.normalized()
@@ -52,6 +53,7 @@ class CalibrationStore(private val context: Context) {
                 .putFloat("sensitivity:up", normalized.up.toFloat())
                 .putFloat("sensitivity:down", normalized.down.toFloat())
                 .putFloat("dead-zone", normalized.deadZone.toFloat())
+                .putInt("key-repeat-ms", normalized.repeatIntervalMs)
                 .apply()
         }
 }

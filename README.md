@@ -43,8 +43,10 @@ This repository contains a working prototype, not a production release.
 5. Captures center, left, right, forward, and backward calibration poses.
 6. Projects live sensor vectors onto calibrated X/Y axes with smoothing and a
    dead zone.
-7. Sends either an analog gamepad or arrow-key device through Android UHID when
-   Shizuku access is available.
+7. Sends either an analog gamepad or repeated arrow-key pulses through Android
+   UHID when Shizuku access is available.
+8. Offers a **Close BoBo Home** button that uses the same granted Shizuku access
+   to stop `com.bobo.home` and release its BLE connection.
 
 Live BLE display, calibration, packet rate, and CSV export work without
 Shizuku. Shizuku is needed only for system-visible controller output.
@@ -53,11 +55,11 @@ Shizuku. Shizuku is needed only for system-visible controller output.
 
 The Windows app scans and connects directly through the operating system's BLE
 stack, captures the same five calibration poses, and emits global arrow-key
-transitions. It releases every held key when output stops, BLE disconnects, or
-the app closes. Four independent sensitivity sliders control left, right,
-forward, and backward movement; a separate dead-zone slider controls neutral
-movement. Calibration and settings remain in the current user's local app-data
-folder.
+pulses for as long as a direction remains tilted. It releases every held key
+when output stops, BLE disconnects, or the app closes. Four independent
+sensitivity sliders control left, right, forward, and backward movement; the
+dead-zone and key-repeat interval have separate sliders. Calibration and
+settings remain in the current user's local app-data folder.
 
 ## Why Shizuku is needed
 
@@ -142,12 +144,16 @@ the hardware checks that remain manual.
 
 1. Power on the board and keep it awake.
 2. Open WobblePad and allow Nearby devices and notification permissions.
-3. Tap **Scan for BoBo**, then select the detected board.
+3. Tap **Scan & auto-connect** once. WobblePad keeps watching in its foreground
+   service, connects when the board appears, and starts controller output after
+   live packets arrive when calibration and Shizuku access are ready. Tap
+   **Disconnect** or stop the notification to end automatic discovery.
 4. Capture `CENTER`, `LEFT`, `RIGHT`, `UP`, and `DOWN`. `UP` means away from
    you. Hold each pose steady for three seconds.
 5. Finish calibration and verify the live dot follows the board.
-6. For controller output, start Shizuku, grant WobblePad access, choose analog
-   stick or arrow keys, and tap **Start controller output**.
+6. For controller output, start Shizuku, grant WobblePad access, and choose
+   analog stick or arrow keys. Automatic discovery starts output for you; the
+   manual start button remains available after calibration or access changes.
 7. Open a controller-compatible app. Return to WobblePad or use its foreground
    notification to stop the bridge.
 
@@ -160,7 +166,8 @@ not included in this repository and is not transmitted by the app.
 2. Scan, choose the board, and connect.
 3. Capture center, left, right, up/forward, and down/backward; then finish
    calibration.
-4. Adjust any directional sensitivity or the center dead zone.
+4. Adjust any directional sensitivity, the center dead zone, or the key-repeat
+   interval.
 5. Start arrow output, then open an arrow-controlled game. Return to WobblePad
    to stop output before disconnecting.
 
