@@ -14,12 +14,12 @@ exact source content it exercised.
 | Derive independent X/Y axes from five calibration poses and reject unsafe calibration data | `JoystickMapperTest` checks cardinal projection plus missing, invalid, and collinear captures | Automated JVM test |
 | Apply radial dead zone, time-based smoothing, full-scale clamping, and digital-key hysteresis | `JoystickMapperTest` supplies controlled sensor values and nanosecond timestamps | Automated JVM test |
 | Apply independent left, right, up, and down sensitivity without changing the center dead zone | Android `JoystickMapperTest` and Windows `MapperTests` exercise the same cardinal vectors | Automated JVM and Python tests |
-| Discover the board, subscribe once, receive notifications, read battery level, and recover a stalled stream | Observe a physical supported board and packet counter on an Android device | Hardware qualification required after BLE changes |
+| Discover the board, subscribe once, receive notifications, refresh the BoBo battery level, clear stale battery state, and recover a stalled stream | Observe a physical supported board, battery display, and packet counter on an Android device | Hardware qualification required after BLE changes |
 | Persist calibration only for the selected Bluetooth address | Calibrate, restart the app, reconnect the same board, then try a different address | Hardware qualification required after storage changes |
 | Move the on-screen dot in the physical tilt direction | Capture all five poses and compare left, right, forward, and backward movement | Hardware qualification required after mapper or UI changes |
-| Create and release virtual gamepad or arrow-key input through Shizuku | Verify Android input-device discovery, events in a receiving app, stop, disconnect, and service failure | Hardware qualification required after controller-output changes |
+| Create, automatically restart, and release virtual gamepad, arrow-key, or simultaneous input through Shizuku | Verify both input devices, independent profiles, automatic permission handling, mode switching, repeated arrow pulses, disconnect, and service failure | Hardware qualification required after controller-output changes |
 | Emit only Windows arrow transitions and release held keys on stop | `ArrowKeyEmitterTests` records press/release calls without injecting global input | Automated Python test |
-| Discover, connect, subscribe, and reconnect through Windows BLE | Exercise a physical board with the packaged Windows application | Windows hardware qualification required after BLE changes |
+| Automatically discover, connect, subscribe, refresh battery state, and reconnect through Windows BLE | Exercise a physical board with the packaged Windows application | Windows hardware qualification required after BLE changes |
 | Keep sensor data local unless the user explicitly exports CSV | Inspect the merged manifest and exercise Android's document picker | Repository validation plus manual Android observation |
 
 Historical prototype captures live under the ignored `Prototype/` directory.

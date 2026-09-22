@@ -13,20 +13,27 @@ class BalanceBoardBLEManager(context: Context, private val packet: (ByteArray) -
     private var level: BluetoothGattCharacteristic? = null
     override fun isRequiredServiceSupported(gatt: BluetoothGatt): Boolean {
         stream = gatt.getService(SERVICE)?.getCharacteristic(CHARACTERISTIC)
-        level = gatt.getService(UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb"))
-            ?.getCharacteristic(UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb"))
+        level = gatt.getService(BATTERY_SERVICE)?.getCharacteristic(BATTERY_LEVEL)
         return stream?.properties?.and(BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0 && stream != null
     }
     override fun initialize() {
         setNotificationCallback(stream).with { _, data -> data.value?.let { packet(it.copyOf()) } }
         enableNotifications(stream).timeout(8000).fail { _, status -> failure("Could not enable board notifications ($status).") }.enqueue()
+        readBattery()
+    }
+    fun readBattery() {
         level?.let { value -> readCharacteristic(value).with { _, data ->
-            data.value?.firstOrNull()?.let { battery(it.toInt() and 255) }
+            data.value?.firstOrNull()?.let { raw ->
+                val percent = raw.toInt() and 255
+                if (percent in 0..100) battery(percent)
+            }
         }.enqueue() }
     }
     override fun onServicesInvalidated() { stream = null; level = null }
     companion object {
         val SERVICE: UUID = UUID.fromString("856b152a-734a-5546-bf2b-ed4898184e12")
         val CHARACTERISTIC: UUID = UUID.fromString("856b152b-734a-5546-bf2b-ed4898184e12")
+        private val BATTERY_SERVICE: UUID = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
+        private val BATTERY_LEVEL: UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
     }
 }

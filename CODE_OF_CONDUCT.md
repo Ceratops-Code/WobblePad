@@ -48,7 +48,7 @@ officially represents the community in public spaces.
 ## Enforcement
 
 Report abusive, harassing, or otherwise unacceptable behavior privately through
-the repository's [security advisory form](https://github.com/Ceratops-Code/WobblePad/security/advisories/new).
+the repository's [security advisory form](https://github.com/Ceratops-Code/Wobblepad-Adapter/security/advisories/new).
 All complaints will be reviewed and investigated promptly and fairly. Reports
 will be handled with respect for the reporter's privacy and safety.
 

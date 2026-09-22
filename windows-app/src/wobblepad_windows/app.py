@@ -77,6 +77,7 @@ class WobblePadApp:
         self.bridge = BleBridge(
             lambda packet: self.events.put(("packet", packet)),
             lambda text, connected: self.events.put(("status", (text, connected))),
+            lambda level: self.events.put(("battery", level)),
         )
         self.state_file = settings_path()
         self.controls, self.saved_samples = load_state(self.state_file)
@@ -86,16 +87,25 @@ class WobblePadApp:
         self.samples: dict[Pose, list[Vector]] = {}
         self.mapper: JoystickMapper | None = None
         self.connected = False
+        self.connecting = False
+        self.watch_for_board = True
+        self.scan_in_progress = False
         self.output_enabled = False
+        self.next_output_attempt = 0.0
         self.capture_pose: Pose | None = None
         self.capture_samples: list[Vector] = []
         self.capture_until = 0.0
         self.packet_count = 0
         self.last_rate_count = 0
         self.last_rate_time = time.monotonic()
+        self.live_x = 0.0
+        self.live_y = 0.0
+        self.packet_rate = 0
+        self.battery_level: int | None = None
         self._build_ui()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(20, self._poll)
+        self.root.after(0, self._scan_once)
 
     def _build_ui(self) -> None:
         frame = ttk.Frame(self.root, padding=18)
@@ -106,7 +116,7 @@ class WobblePadApp:
             text="Unofficial BLE-to-arrow bridge for compatible balance boards. Not affiliated with BO&BO Ltd.",
             wraplength=640,
         ).pack(anchor="w", pady=(0, 12))
-        self.status = tk.StringVar(value="Power on the board, then scan.")
+        self.status = tk.StringVar(value="Watching for a compatible balance board…")
         ttk.Label(frame, textvariable=self.status, wraplength=640).pack(anchor="w", pady=(0, 8))
 
         connection = ttk.Frame(frame)
@@ -118,15 +128,13 @@ class WobblePadApp:
         ttk.Button(connection, text="Connect", command=self.connect).pack(side="left", padx=4)
         ttk.Button(connection, text="Disconnect", command=self.disconnect).pack(side="left")
 
-        self.live = tk.StringVar(value="X +0.00   Y +0.00   •   0 packets/sec")
+        self.live = tk.StringVar(value="X +0.00   Y +0.00   •   0 packets/sec   •   BoBo battery —")
         ttk.Label(frame, textvariable=self.live, font=("Consolas", 13)).pack(anchor="w", pady=12)
 
-        output = ttk.LabelFrame(frame, text="Arrow output", padding=10)
+        output = ttk.LabelFrame(frame, text="Controller output", padding=10)
         output.pack(fill="x", pady=4)
-        self.output_status = tk.StringVar(value="Stopped")
+        self.output_status = tk.StringVar(value="Starts automatically after connection and calibration")
         ttk.Label(output, textvariable=self.output_status).pack(side="left", fill="x", expand=True)
-        ttk.Button(output, text="Start", command=self.start_output).pack(side="left", padx=4)
-        ttk.Button(output, text="Stop", command=self.stop_output).pack(side="left")
 
         calibration = ttk.LabelFrame(frame, text="Calibration", padding=10)
         calibration.pack(fill="x", pady=8)
@@ -207,8 +215,15 @@ class WobblePadApp:
         self._save()
 
     def scan(self) -> None:
+        self.watch_for_board = True
+        self._scan_once()
+
+    def _scan_once(self) -> None:
+        if not self.watch_for_board or self.scan_in_progress or self.connected or self.connecting:
+            return
+        self.scan_in_progress = True
         self.status.set("Scanning for compatible balance boards…")
-        future = self.runner.submit(self.bridge.scan())
+        future = self.runner.submit(self.bridge.scan(timeout=2.5))
 
         def complete(result: concurrent.futures.Future[Any]) -> None:
             try:
@@ -222,8 +237,11 @@ class WobblePadApp:
         label = self.board_choice.get()
         board = self.boards.get(label)
         if board is None:
-            self.status.set("Scan and select a board first.")
+            self.status.set("Watching for a compatible balance board…")
+            self._schedule_scan()
             return
+        self.watch_for_board = True
+        self.connecting = True
         self.stop_output()
         self.current_address = board.address
         self.samples = {pose: list(values) for pose, values in self.saved_samples.get(board.address, {}).items()}
@@ -237,6 +255,8 @@ class WobblePadApp:
         self.runner.submit(self.bridge.start(board.address))
 
     def disconnect(self) -> None:
+        self.watch_for_board = False
+        self.connecting = False
         self.stop_output()
         self.connected = False
         self.runner.submit(self.bridge.stop())
@@ -264,6 +284,7 @@ class WobblePadApp:
         self.saved_samples[self.current_address] = {pose: list(values) for pose, values in self.samples.items()}
         self._save()
         self.status.set("Calibration saved. Arrow output is ready.")
+        self.start_output()
 
     def start_output(self) -> None:
         if not self.connected or self.mapper is None or self.capture_pose is not None:
@@ -271,15 +292,17 @@ class WobblePadApp:
             return
         self.mapper.reset()
         self.output_enabled = True
-        self.output_status.set("Sending arrow keys")
+        self.next_output_attempt = 0.0
+        self.output_status.set("Sending arrow keys automatically")
 
     def stop_output(self) -> None:
         self.output_enabled = False
+        self.next_output_attempt = 0.0
         try:
             self.keyboard.release_all()
         except OSError as error:
             self.status.set(f"Could not release an arrow key: {error}")
-        self.output_status.set("Stopped")
+        self.output_status.set("Waiting for connection and calibration")
 
     def _save(self) -> None:
         try:
@@ -303,19 +326,34 @@ class WobblePadApp:
         if self.mapper is None:
             return
         stick = self.mapper.update(values)
-        if self.output_enabled:
+        self.live_x = stick.x
+        self.live_y = stick.y
+        now = time.monotonic()
+        if self.output_enabled and now >= self.next_output_attempt:
             try:
                 self.keyboard.update(stick.keys)
             except OSError as error:
-                self.stop_output()
+                try:
+                    self.keyboard.release_all()
+                except OSError:
+                    pass
+                self.next_output_attempt = now + 1.0
+                self.output_status.set("Arrow output interrupted; retrying automatically")
                 self.status.set(f"Arrow output failed: {error}")
-        now = time.monotonic()
         elapsed = now - self.last_rate_time
         rate = int((self.packet_count - self.last_rate_count) / elapsed) if elapsed >= 1.0 else None
         if rate is not None:
             self.last_rate_count = self.packet_count
             self.last_rate_time = now
-            self.live.set(f"X {stick.x:+.2f}   Y {stick.y:+.2f}   •   {rate} packets/sec")
+            self.packet_rate = rate
+        self._refresh_live()
+
+    def _refresh_live(self) -> None:
+        battery = f"{self.battery_level}%" if self.battery_level is not None else "—"
+        self.live.set(
+            f"X {self.live_x:+.2f}   Y {self.live_y:+.2f}   •   {self.packet_rate} packets/sec"
+            f"   •   BoBo battery {battery}"
+        )
 
     def _poll(self) -> None:
         for _ in range(300):
@@ -329,19 +367,37 @@ class WobblePadApp:
                 text, connected = payload
                 self.connected = connected
                 self.status.set(text)
-                if not connected:
+                if connected:
+                    self.connecting = False
+                    self.start_output()
+                else:
                     self.stop_output()
+                    self.battery_level = None
+                    self._refresh_live()
+                    if "Reconnect stopped" in text:
+                        self.connecting = False
+                        self._schedule_scan()
+            elif kind == "battery":
+                self.battery_level = payload
+                self._refresh_live()
             elif kind == "scan":
+                self.scan_in_progress = False
                 found: list[Board] = payload
                 self.boards = {f"{board.name} — {board.address}": board for board in found}
                 self.board_box.configure(values=list(self.boards))
+                if not self.watch_for_board or self.connected or self.connecting:
+                    continue
                 if self.boards:
                     self.board_choice.set(next(iter(self.boards)))
-                    self.status.set("Select the board and click Connect.")
+                    self.status.set("Board found. Connecting automatically…")
+                    self.connect()
                 else:
-                    self.status.set("No compatible board found. Keep it awake and close other BLE apps.")
+                    self.status.set("No board visible yet. Watching automatically…")
+                    self._schedule_scan()
             elif kind == "error":
+                self.scan_in_progress = False
                 self.status.set(str(payload))
+                self._schedule_scan()
         if self.capture_pose is not None and time.monotonic() >= self.capture_until:
             pose = self.capture_pose
             captured = list(self.capture_samples)
@@ -353,7 +409,13 @@ class WobblePadApp:
                 self._refresh_pose_buttons()
             else:
                 self.status.set(f"Only {len(captured)} packets captured. Try {pose.value.lower()} again.")
+            if self.connected and self.mapper is not None:
+                self.start_output()
         self.root.after(20, self._poll)
+
+    def _schedule_scan(self, delay_ms: int = 1000) -> None:
+        if self.watch_for_board:
+            self.root.after(delay_ms, self._scan_once)
 
     def close(self) -> None:
         self.stop_output()

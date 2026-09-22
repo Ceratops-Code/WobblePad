@@ -64,8 +64,8 @@ class ControllerLink(private val context: Context, private val changed: (Boolean
     }
     private fun awaitInputDevice(token: Int, deadline: Long) {
         if (token != generation || !wanted) return
-        val name = ControllerUserService.name(mode)
-        val found = InputDevice.getDeviceIds().any { InputDevice.getDevice(it)?.name == name }
+        val expected = ControllerUserService.names(mode).toSet()
+        val found = InputDevice.getDeviceIds().map { InputDevice.getDevice(it)?.name }.filterNotNull().containsAll(expected)
         if (found) {
             ready = true; binding = false; latest.set(Stick())
             changed(true, "Controller ready")
