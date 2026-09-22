@@ -35,6 +35,11 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: "24"
+
       - name: Set up uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
@@ -45,7 +50,7 @@ jobs:
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Validate and test through SDLC
-        uses: Ceratops-Code/AI-Agent-Skills/skills/ceratops-repo-lifecycle/scripts@56adb83bc11e1ef219d3fd40e6ee602ed7aad069
+        uses: Ceratops-Code/AI-Agent-Skills/skills/ceratops-repo-lifecycle/scripts@8b66565ee42edb5d2840bf895e2a79b739d347d0
         with:
           repo-root: .
           evidence-file: ${{ runner.temp }}/sdlc-validation.json
@@ -57,4 +62,6 @@ jobs:
           if-no-files-found: ignore
           name: repository-validation-evidence
           include-hidden-files: true
-          path: ${{ runner.temp }}/sdlc-validation.json
+          path: |
+            ${{ runner.temp }}/sdlc-validation.json
+            .test-results/evidence/*.log

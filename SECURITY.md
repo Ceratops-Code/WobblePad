@@ -8,11 +8,11 @@ supported.
 
 ## Report a vulnerability
 
-Use [GitHub private vulnerability reporting](https://github.com/Ceratops-Code/Wobblepad-Android/security/advisories/new).
+Use [GitHub private vulnerability reporting](https://github.com/Ceratops-Code/WobblePad/security/advisories/new).
 Do not open a public issue for a vulnerability before maintainers have had a
 reasonable opportunity to assess it.
 
-Include the affected commit or version, Android device and version, required
+Include the affected commit or version, device and operating-system version, required
 preconditions, reproduction steps, impact, and any proposed mitigation. Remove
 Bluetooth addresses, calibration samples, captured movement data, account data,
 and secrets from the report unless they are essential and safe to share in the
@@ -28,9 +28,11 @@ private advisory.
 - The privileged helper opens `/dev/uhid`, creates one virtual input device,
   accepts only the app's small controller protocol, and releases input on stop
   or failure.
-- The app requests no Internet permission and stores no signing material in the
-  repository.
+- On Windows, arrow output uses `SendInput` without elevation and releases every
+  held key on stop, disconnect, or application shutdown.
+- The Android app requests no Internet permission; the Windows app performs no
+  Internet operation. Neither stores signing material in the repository.
 
-A game declining virtual input, a board using a different undocumented packet
-format, or Shizuku needing to restart after reboot is normally a compatibility
-issue rather than a security vulnerability.
+A game declining synthesized input, a board using a different undocumented
+packet format, or Shizuku needing to restart after reboot is normally a
+compatibility issue rather than a security vulnerability.

@@ -1,0 +1,29 @@
+{
+  "groups": [
+    {
+      "id": "repository-scripts",
+      "path": ".test-results/groups/repository-scripts.json",
+      "sha256": "1a7d1dcba4f97392465c3f068cf510a913f9c4e03d487e06fdf58392a144412f",
+      "status": "passed"
+    },
+    {
+      "id": "android-jvm",
+      "path": ".test-results/groups/android-jvm.json",
+      "sha256": "36b7b4dc3469c85592a1cd64e71220746bdda1ba2df1e96bb6e157b1088f44fc",
+      "status": "passed"
+    },
+    {
+      "id": "windows-python",
+      "path": ".test-results/groups/windows-python.json",
+      "sha256": "487657b0ecf878278d910ba60ab2a949d19963bfefe7e6523e7bed7240e099de",
+      "status": "passed"
+    }
+  ],
+  "schema": "ceratops-repository-stage-result.v1",
+  "source": {
+    "contentSha256": "7e819960bab91d72ea3423bbb7ea054fc6ccc2178465b430f1a90ab02d5fd895",
+    "sourceCommit": "cc9e08bcf4aec6bbc0f88273aeb4c91d94e8800e"
+  },
+  "stage": "tests",
+  "status": "passed"
+}

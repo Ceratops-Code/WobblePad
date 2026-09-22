@@ -1,44 +1,160 @@
-version: 3
+version: 4
 kind: ceratops-sdlc
 repository:
-  prerequisites:
-    python:
-      executable: python
+  capabilities:
     uv:
       executable: uv
-  bootstrap:
-    validation:
-      prerequisites:
-        - uv
+    java:
+      executable: java
+      version: "17"
+    node:
+      executable: node
+      version: "24"
+    npm:
+      executable: npm
+    adb:
+      executable: adb
+  actions:
+    validate:
+      requires:
+        capabilities:
+          - uv
+          - java
+          - node
+          - npm
+      result-schema: ceratops-repository-stage-result.v1
       steps:
         - run:
             - uv
-            - sync
+            - run
             - --project
             - scripts
             - --locked
-  validate:
-    repository:
-      steps:
+            - python
+            - -c
+            - import shutil, subprocess; subprocess.run([shutil.which('npm'), '--prefix',
+              'scripts', 'ci'], check=True)
         - run:
             - uv
             - run
+            - --project
+            - scripts
             - --locked
+            - python
             - scripts/validate-repository.py
-    android:
+    test:
+      requires:
+        capabilities:
+          - uv
+          - java
+      result-schema: ceratops-repository-stage-result.v1
       steps:
         - run:
             - uv
             - run
+            - --project
+            - scripts
             - --locked
-            - scripts/repository_checks.py
-            - validate
-  tests:
-    android-jvm-unit:
-      steps:
-        - run:
-            - uv
-            - run
-            - --locked
-            - scripts/repository_checks.py
-            - test
+            - python
+            - scripts/run-tests.py
+deliverables:
+  packages:
+    wobblepad-apk:
+      source: app
+      prerequisites: []
+      artifact:
+        type: android-apk
+        output-directory: app/build/outputs/apk/debug
+        filename-pattern: app-debug.apk
+      actions:
+        build:
+          requires:
+            capabilities:
+              - uv
+              - java
+          result-schema: ceratops-build-result.v1
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - python
+                - scripts/build-android.py
+    wobblepad-windows-bundle:
+      source: windows-app
+      prerequisites: []
+      artifact:
+        type: windows-app-zip
+        output-directory: .build/windows
+        filename-pattern: WobblePad-Windows.zip
+      actions:
+        build:
+          requires:
+            capabilities:
+              - uv
+          result-schema: ceratops-build-result.v1
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - windows-app
+                - --locked
+                - python
+                - scripts/build-windows.py
+  apps:
+    wobblepad-android:
+      source: app
+      manifest: app/src/main/AndroidManifest.xml
+      prerequisites:
+        - wobblepad-apk
+      actions:
+        validate:
+          requires:
+            capabilities: []
+          no-op: Repository validation and tests cover the Android app source.
+        install:
+          requires:
+            capabilities:
+              - uv
+              - adb
+          parameters:
+            - serial
+          result-schema: ceratops-deployment-result.v1
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - python
+                - scripts/deploy-android.py
+                - --serial
+                - "{serial}"
+    wobblepad-windows:
+      source: windows-app
+      manifest: windows-app/pyproject.toml
+      prerequisites:
+        - wobblepad-windows-bundle
+      actions:
+        validate:
+          requires:
+            capabilities: []
+          no-op: Repository validation and tests cover the Windows app source.
+        install:
+          requires:
+            capabilities:
+              - uv
+          result-schema: ceratops-deployment-result.v1
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - python
+                - scripts/deploy-windows.py

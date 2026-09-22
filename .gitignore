@@ -13,17 +13,22 @@ keystore.properties
 # Local tools, environments, and generated artifacts
 .tools/
 .venv/
+__pycache__/
+*.py[cod]
+/scripts/node_modules/
 /Prototype/
 .artifacts/
 .captures/
 *.apk
 *.aab
 *.csv
+!/test-fixtures/joystick-mapper-v1.csv
 *.log
 
-# Portable result records are tracked; supporting logs are local evidence.
+# Portable validation and test results are tracked; supporting logs stay local.
 /.test-results/evidence/
 
 # OS files
 .DS_Store
 Thumbs.db
+/.build/

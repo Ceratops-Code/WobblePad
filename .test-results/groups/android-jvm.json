@@ -9,7 +9,15 @@
       "status": "passed"
     },
     {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.centerDeadZoneIsConfigurableSeparately",
+      "status": "passed"
+    },
+    {
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.diagonalOutputIsClampedRadially",
+      "status": "passed"
+    },
+    {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.directionalSensitivityScalesEachDirectionIndependently",
       "status": "passed"
     },
     {
@@ -18,6 +26,10 @@
     },
     {
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.radialDeadZoneSuppressesNoiseAndRescalesMovement",
+      "status": "passed"
+    },
+    {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.sharedConformanceCasesMatchExpectedOutputs",
       "status": "passed"
     },
     {
@@ -39,20 +51,19 @@
     "--rerun-tasks",
     ":app:testDebugUnitTest"
   ],
-  "coverageMap": "TESTING.md",
-  "evidence": ".test-results/evidence/test.log",
-  "exitCode": 0,
-  "schema": "wobblepad-android-test-result.v1",
+  "evidence": ".test-results/evidence/android-jvm.log",
+  "group": "android-jvm",
+  "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "f1aca80afd70f94eca7f16c5d82b6ac2d4af1102d1b4412999374610e2eaec46",
-    "versionTag": null
+    "contentSha256": "7e819960bab91d72ea3423bbb7ea054fc6ccc2178465b430f1a90ab02d5fd895",
+    "sourceCommit": "cc9e08bcf4aec6bbc0f88273aeb4c91d94e8800e"
   },
+  "stage": "tests",
   "status": "passed",
-  "suite": "android-jvm-unit-tests",
   "summary": {
     "failed": 0,
-    "passed": 8,
+    "passed": 11,
     "skipped": 0,
-    "total": 8
+    "total": 11
   }
 }

@@ -21,11 +21,11 @@ class CalibrationStore(private val context: Context) {
                 DoubleArray(9) { vector.getDouble(it) }
             }
         }
-        JoystickMapper.calibrate(samples)
+        JoystickMapper.calibrate(samples, controls)
         return samples
     }
     fun save(address: String, samples: Map<Pose, List<DoubleArray>>) {
-        JoystickMapper.calibrate(samples)
+        JoystickMapper.calibrate(samples, controls)
         val data = JSONObject()
         samples.forEach { (pose, vectors) -> data.put(pose.name, JSONArray().apply {
             vectors.forEach { vector -> put(JSONArray().apply { vector.forEach { put(it) } }) }
@@ -36,4 +36,22 @@ class CalibrationStore(private val context: Context) {
     var mode: Int
         get() = prefs.getInt("mode", 0).coerceIn(0, 1)
         set(value) { prefs.edit().putInt("mode", value.coerceIn(0, 1)).apply() }
+    var controls: ControlSettings
+        get() = ControlSettings(
+            left = prefs.getFloat("sensitivity:left", 1f).toDouble(),
+            right = prefs.getFloat("sensitivity:right", 1f).toDouble(),
+            up = prefs.getFloat("sensitivity:up", 1f).toDouble(),
+            down = prefs.getFloat("sensitivity:down", 1f).toDouble(),
+            deadZone = prefs.getFloat("dead-zone", 0.08f).toDouble(),
+        ).normalized()
+        set(value) {
+            val normalized = value.normalized()
+            prefs.edit()
+                .putFloat("sensitivity:left", normalized.left.toFloat())
+                .putFloat("sensitivity:right", normalized.right.toFloat())
+                .putFloat("sensitivity:up", normalized.up.toFloat())
+                .putFloat("sensitivity:down", normalized.down.toFloat())
+                .putFloat("dead-zone", normalized.deadZone.toFloat())
+                .apply()
+        }
 }

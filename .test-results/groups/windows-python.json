@@ -1,0 +1,67 @@
+{
+  "cases": [
+    {
+      "id": "test_keyboard.ArrowKeyEmitterTests.test_emits_only_transitions_and_releases_every_key",
+      "status": "passed"
+    },
+    {
+      "id": "test_keyboard.ArrowKeyEmitterTests.test_input_matches_the_win32_abi_size",
+      "status": "passed"
+    },
+    {
+      "id": "test_keyboard.ArrowKeyEmitterTests.test_release_attempts_every_held_key_after_sender_failure",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.MapperTests.test_collinear_calibration_is_rejected",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.MapperTests.test_dead_zone_is_separate_and_rescaled",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.MapperTests.test_directional_sensitivity_is_independent",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.MapperTests.test_shared_conformance_cases_match_expected_outputs",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.PacketTests.test_malformed_packet_is_rejected",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.PacketTests.test_observed_packet_decodes_nine_signed_values",
+      "status": "passed"
+    },
+    {
+      "id": "test_model.PersistenceTests.test_settings_and_calibration_round_trip",
+      "status": "passed"
+    }
+  ],
+  "command": [
+    "python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "windows-app/tests"
+  ],
+  "evidence": ".test-results/evidence/windows-python.log",
+  "group": "windows-python",
+  "schema": "ceratops-repository-stage-result.v1",
+  "source": {
+    "contentSha256": "7e819960bab91d72ea3423bbb7ea054fc6ccc2178465b430f1a90ab02d5fd895",
+    "sourceCommit": "cc9e08bcf4aec6bbc0f88273aeb4c91d94e8800e"
+  },
+  "stage": "tests",
+  "status": "passed",
+  "summary": {
+    "failed": 0,
+    "passed": 10,
+    "skipped": 0,
+    "total": 10
+  }
+}

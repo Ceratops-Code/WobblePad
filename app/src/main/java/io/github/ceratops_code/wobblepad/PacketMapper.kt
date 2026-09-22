@@ -17,19 +17,38 @@ object PacketParser {
 
 data class Stick(val x: Float = 0f, val y: Float = 0f, val keys: Int = 0)
 
+data class ControlSettings(
+    val left: Double = 1.0,
+    val right: Double = 1.0,
+    val up: Double = 1.0,
+    val down: Double = 1.0,
+    val deadZone: Double = 0.08,
+) {
+    fun normalized() = ControlSettings(
+        left = left.coerceIn(0.5, 2.0),
+        right = right.coerceIn(0.5, 2.0),
+        up = up.coerceIn(0.5, 2.0),
+        down = down.coerceIn(0.5, 2.0),
+        deadZone = deadZone.coerceIn(0.0, 0.30),
+    )
+}
+
 /** Least-squares calibration plus a time-based filter, radial dead zone and key hysteresis. */
 class JoystickMapper private constructor(
     private val center: DoubleArray,
     private val a: DoubleArray,
     private val b: DoubleArray,
-    private val gains: DoubleArray
+    private val gains: DoubleArray,
+    settings: ControlSettings,
 ) {
+    private var settings = settings.normalized()
     private var filteredX = 0.0
     private var filteredY = 0.0
     private var lastNanos = 0L
     private var keys = 0
 
     fun reset() { filteredX = 0.0; filteredY = 0.0; lastNanos = 0; keys = 0 }
+    fun setControlSettings(value: ControlSettings) { settings = value.normalized() }
 
     fun project(v: DoubleArray): Pair<Double, Double> {
         val d = DoubleArray(9) { v[it] - center[it] }
@@ -40,13 +59,15 @@ class JoystickMapper private constructor(
 
     fun update(values: DoubleArray, nowNanos: Long = System.nanoTime()): Stick {
         val (px, py) = project(values)
-        val x = px / gains[if (px >= 0) 0 else 1]
-        val y = py / gains[if (py >= 0) 2 else 3]
+        val controls = settings
+        val x = px / gains[if (px >= 0) 0 else 1] * if (px >= 0) controls.right else controls.left
+        val y = py / gains[if (py >= 0) 2 else 3] * if (py >= 0) controls.up else controls.down
         val alpha = if (lastNanos == 0L) 1.0 else 1 - exp(-max(0L, nowNanos - lastNanos) / 60_000_000.0)
         filteredX += alpha * (x - filteredX); filteredY += alpha * (y - filteredY)
         lastNanos = nowNanos
         val radius = hypot(filteredX, filteredY)
-        val scale = if (radius <= 0.08) 0.0 else min(1.0, (radius - 0.08) / 0.92) / radius
+        val scale = if (radius <= controls.deadZone) 0.0 else
+            min(1.0, (radius - controls.deadZone) / (1.0 - controls.deadZone)) / radius
         val ox = (filteredX * scale).toFloat(); val oy = (filteredY * scale).toFloat()
         var next = 0
         for ((bit, value) in listOf(1 to -ox, 2 to ox, 4 to oy, 8 to -oy)) {
@@ -60,7 +81,10 @@ class JoystickMapper private constructor(
         private fun dot(a: DoubleArray, b: DoubleArray) = a.indices.sumOf { a[it] * b[it] }
         fun average(samples: List<DoubleArray>) = DoubleArray(9) { i -> samples.sumOf { it[i] } / samples.size }
 
-        fun calibrate(samples: Map<Pose, List<DoubleArray>>): JoystickMapper {
+        fun calibrate(
+            samples: Map<Pose, List<DoubleArray>>,
+            settings: ControlSettings = ControlSettings(),
+        ): JoystickMapper {
             require(Pose.entries.all { samples[it]?.size in 10..500 }) { "Capture all five poses with at least 10 packets each." }
             require(samples.values.flatten().all { it.size == 9 && it.all { n -> n.isFinite() && n in -32768.0..32767.0 } }) {
                 "Calibration contains invalid sensor values."
@@ -75,12 +99,12 @@ class JoystickMapper private constructor(
             }
             require(min(aa, bb) > max(1.0, 4 * noise).pow(2)) { "The poses moved too much during capture, or the tilts were too small. Recapture steady poses." }
             require(aa * bb - ab * ab > 0.01 * aa * bb) { "Left/right and forward/back were too similar. Recapture distinct directions." }
-            val mapper = JoystickMapper(c, a, b, doubleArrayOf(1.0, 1.0, 1.0, 1.0))
+            val mapper = JoystickMapper(c, a, b, doubleArrayOf(1.0, 1.0, 1.0, 1.0), settings)
             val gains = doubleArrayOf(mapper.project(means.getValue(Pose.RIGHT)).first,
                 -mapper.project(means.getValue(Pose.LEFT)).first,
                 mapper.project(means.getValue(Pose.UP)).second, -mapper.project(means.getValue(Pose.DOWN)).second)
             require(gains.all { it > 0.2 }) { "Center must lie between the opposite tilts. Recapture center and directions." }
-            return JoystickMapper(c, a, b, gains)
+            return JoystickMapper(c, a, b, gains, settings)
         }
     }
 }

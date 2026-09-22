@@ -2,7 +2,7 @@
 name = "repository-tools"
 version = "0.0.0"
 requires-python = ">=3.11"
-dependencies = ["mypy", "ruff"]
+dependencies = ["mypy", "ruff", "yamllint"]
 
 [tool.uv]
 package = false

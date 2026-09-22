@@ -25,7 +25,7 @@ data class BridgeState(
     val stick: Stick = Stick(), val calibrated: Boolean = false,
     val counts: Map<Pose, Int> = emptyMap(), val capture: Pose? = null,
     val output: Boolean = false, val outputMessage: String = "Controller output is stopped",
-    val mode: Int = 0
+    val mode: Int = 0, val controls: ControlSettings = ControlSettings()
 )
 
 /** Owns BLE and controller lifetime while another app is in front. All state changes
@@ -53,6 +53,7 @@ class BridgeService : Service() {
     private var pendingPose: Pose? = null
     private val pendingSamples = mutableListOf<DoubleArray>()
     private val samples = mutableMapOf<Pose, List<DoubleArray>>()
+    private var samplesAddress: String? = null
     private var mapper: JoystickMapper? = null
     private var wantOutput = false
     private val packetTimes = ArrayDeque<Long>()
@@ -63,7 +64,7 @@ class BridgeService : Service() {
     override fun onCreate() {
         super.onCreate()
         calibration = CalibrationStore(this)
-        state = state.copy(mode = calibration.mode)
+        state = state.copy(mode = calibration.mode, controls = calibration.controls)
         controller = ControllerLink(this) { ready, message ->
             if (!ready && !controller.binding) wantOutput = false
             state = state.copy(output = ready && wantOutput, outputMessage = message)
@@ -131,14 +132,18 @@ class BridgeService : Service() {
     fun connect(address: String) {
         if (!permissions()) { message("Allow Nearby Devices first."); return }
         if (adapter?.isEnabled != true) { message("Turn on Bluetooth first."); return }
+        val keepCalibration = address.equals(samplesAddress, ignoreCase = true)
         disconnect()
         keepRunning()
-        samples.clear(); mapper = null
-        runCatching { calibration.load(address) }.onSuccess { saved ->
-            if (saved != null) { samples.putAll(saved); mapper = JoystickMapper.calibrate(samples) }
+        if (!keepCalibration) {
+            samples.clear(); mapper = null; samplesAddress = address
+            runCatching { calibration.load(address) }.onSuccess { saved ->
+                if (saved != null) { samples.putAll(saved); mapper = JoystickMapper.calibrate(samples, calibration.controls) }
+            }
         }
         reconnects = 0
-        state = BridgeState(address = address, calibrated = mapper != null, counts = samples.mapValues { it.value.size }, mode = calibration.mode)
+        state = BridgeState(address = address, calibrated = mapper != null, counts = samples.mapValues { it.value.size },
+            mode = calibration.mode, controls = calibration.controls)
         connectAttempt()
     }
     private fun connectAttempt() {
@@ -247,12 +252,19 @@ class BridgeService : Service() {
     fun finishCalibration() {
         val address = state.address ?: return
         runCatching {
-            val result = JoystickMapper.calibrate(samples)
+            val result = JoystickMapper.calibrate(samples, calibration.controls)
             calibration.save(address, samples); mapper = result
         }.onSuccess { state = state.copy(calibrated = true); message("Calibration saved.") }
             .onFailure { message(it.message ?: "Calibration could not be saved") }
     }
     fun setMode(mode: Int) { stopOutput(); calibration.mode = mode; state = state.copy(mode = mode); publish() }
+    fun setControlSettings(settings: ControlSettings) {
+        val normalized = settings.normalized()
+        calibration.controls = normalized
+        mapper?.setControlSettings(normalized)
+        state = state.copy(controls = normalized)
+        publish()
+    }
     fun startOutput() {
         if (!state.connected || mapper == null || pendingPose != null || SystemClock.elapsedRealtime() - lastPacket > 1000) {
             message("Connect BoBo and finish calibration before starting output."); return
