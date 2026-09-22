@@ -97,8 +97,8 @@
   "group": "repository-scripts",
   "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "f8538bdd1eccf667c81404344e2ef4a46b7ab825914fa601780b54d59793abbd",
-    "sourceCommit": "97e77099cb090c3f3fd8d5b9b37888b45e93071d"
+    "contentSha256": "a6f8f761cfedaf62a3401174bace0c747f68f943618177df8ad1898dfcbcd688",
+    "sourceCommit": "4b9c8cd0122e35489763ea3abae210444622513d"
   },
   "stage": "tests",
   "status": "passed",
