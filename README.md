@@ -45,6 +45,8 @@ This repository contains a working prototype, not a production release.
    dead zone.
 7. Sends either an analog gamepad or repeated arrow-key pulses through Android
    UHID when Shizuku access is available.
+8. Offers a **Close BoBo Home** button that uses the same granted Shizuku access
+   to stop `com.bobo.home` and release its BLE connection.
 
 Live BLE display, calibration, packet rate, and CSV export work without
 Shizuku. Shizuku is needed only for system-visible controller output.

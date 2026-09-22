@@ -55,6 +55,7 @@ class MainActivity : Activity() {
         live = title("X 0.00   Y 0.00", 19)
         access = title("", 14)
         row(button("Shizuku setup") { openShizuku() }, button("Allow controller access") { requestShizuku() })
+        column.addView(button("Close BoBo Home") { service?.closeBoBoHome() })
         output = title("Controller output is stopped", 15)
         val modes = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
         listOf("Analog stick", "Arrow keys").forEachIndexed { i, text ->
@@ -91,7 +92,6 @@ class MainActivity : Activity() {
         }
         start = button("Start controller output") { service?.startOutput() }
         row(start, button("Stop output") { service?.stopOutput() })
-        column.addView(button("Close WobblePad") { closeApplication() })
         column.addView(button("Check Android controller input") {
             service?.stopOutput(); startActivity(Intent(this, InputCheckActivity::class.java))
         })
@@ -147,11 +147,6 @@ class MainActivity : Activity() {
             override fun onStopTrackingTouch(seekBar: SeekBar) {}
         })
         column.addView(slider)
-    }
-    private fun closeApplication() {
-        service?.disconnect()
-        stopService(Intent(this, BridgeService::class.java))
-        finishAndRemoveTask()
     }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     private fun scan() {

@@ -167,8 +167,6 @@ class WobblePadApp:
             1000,
             " ms",
         )
-        ttk.Button(frame, text="Close WobblePad", command=self.close).pack(fill="x", pady=(8, 0))
-
     def _add_slider(
         self,
         parent: tk.Misc,

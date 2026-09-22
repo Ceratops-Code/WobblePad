@@ -262,6 +262,14 @@ class BridgeService : Service() {
         }.onSuccess { state = state.copy(calibrated = true); message("Calibration saved.") }
             .onFailure { message(it.message ?: "Calibration could not be saved") }
     }
+    fun closeBoBoHome() {
+        message("Closing BoBo Home…")
+        runCatching {
+            controller.closeBoBoHome { result ->
+                message(if (result.isBlank()) "BoBo Home closed." else result)
+            }
+        }.onFailure { message(it.message ?: "Could not close BoBo Home") }
+    }
     fun setMode(mode: Int) { stopOutput(); keyRepeater.reset(); calibration.mode = mode; state = state.copy(mode = mode); publish() }
     fun setControlSettings(settings: ControlSettings) {
         val normalized = settings.normalized()
