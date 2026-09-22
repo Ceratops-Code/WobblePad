@@ -22,20 +22,36 @@ class MainActivity : Activity() {
     private lateinit var raw: TextView
     private lateinit var output: TextView
     private lateinit var boards: LinearLayout
+    private lateinit var controlsPanel: LinearLayout
     private lateinit var plot: StickView
-    private lateinit var start: Button
     private val poses = mutableMapOf<Pose, Button>()
     private var previousBoards = emptyList<Board>()
+    private var displayedControlMode = -1
+    private var displayedControls = ControlSettings()
+    private var shizukuRequestPending = false
+    private var shizukuRequestAttempted = false
     private var saveText = ""
     private val permissions = arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-    private val binderReceived = Shizuku.OnBinderReceivedListener { runOnUiThread { showAccess() } }
-    private val permissionResult = Shizuku.OnRequestPermissionResultListener { _, _ -> showAccess() }
-    private val binderDead = Shizuku.OnBinderDeadListener { runOnUiThread { showAccess() } }
+    private val binderReceived = Shizuku.OnBinderReceivedListener { runOnUiThread { ensureControllerAccess() } }
+    private val permissionResult = Shizuku.OnRequestPermissionResultListener { requestCode, result ->
+        if (requestCode == SHIZUKU_PERMISSION_REQUEST) runOnUiThread {
+            shizukuRequestPending = false
+            showAccess()
+            if (result == PackageManager.PERMISSION_GRANTED) service?.ensureOutput()
+        }
+    }
+    private val binderDead = Shizuku.OnBinderDeadListener { runOnUiThread {
+        shizukuRequestPending = false
+        shizukuRequestAttempted = false
+        showAccess()
+    } }
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             service = (binder as BridgeService.LocalBinder).service
             service?.listener = ::render
             service?.state?.let(::render)
+            ensureControllerAccess()
+            service?.ensureOutput()
         }
         override fun onServiceDisconnected(name: ComponentName) { service = null }
     }
@@ -54,46 +70,28 @@ class MainActivity : Activity() {
         plot = StickView(this); column.addView(plot, LinearLayout.LayoutParams(-1, dp(210)))
         live = title("X 0.00   Y 0.00", 19)
         access = title("", 14)
-        row(button("Shizuku setup") { openShizuku() }, button("Allow controller access") { requestShizuku() })
+        column.addView(button("Shizuku setup") { openShizuku() })
         column.addView(button("Close BoBo Home") { service?.closeBoBoHome() })
-        output = title("Controller output is stopped", 15)
+        output = title("Controller output starts automatically", 15)
+        val controlStore = CalibrationStore(this)
         val modes = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
         listOf("Analog stick", "Arrow keys").forEachIndexed { i, text ->
             modes.addView(RadioButton(this).apply { id = 100 + i; this.text = text; setTextColor(Color.WHITE) })
         }
-        modes.check(100 + CalibrationStore(this).mode)
-        modes.setOnCheckedChangeListener { _, id -> service?.setMode(id - 100) }; column.addView(modes)
-        title("Control sensitivity", 21)
-        title("Higher directional sensitivity reaches full input with less tilt. The center dead zone suppresses movement near level.", 14)
-        val controlStore = CalibrationStore(this)
-        val initialControls = controlStore.controls
-        fun updateControls(transform: (ControlSettings) -> ControlSettings) {
-            val updated = transform(controlStore.controls).normalized()
-            controlStore.controls = updated
-            service?.setControlSettings(updated)
+        val initialMode = controlStore.mode
+        modes.check(100 + initialMode)
+        modes.setOnCheckedChangeListener { _, id ->
+            val mode = (id - 100).coerceIn(0, 1)
+            controlStore.mode = mode
+            showControlSettings(mode, controlStore.controlsFor(mode))
+            service?.setMode(mode)
         }
-        percentSlider("Left sensitivity", initialControls.left, 50, 200) { value ->
-            updateControls { it.copy(left = value) }
-        }
-        percentSlider("Right sensitivity", initialControls.right, 50, 200) { value ->
-            updateControls { it.copy(right = value) }
-        }
-        percentSlider("Up / forward sensitivity", initialControls.up, 50, 200) { value ->
-            updateControls { it.copy(up = value) }
-        }
-        percentSlider("Down / backward sensitivity", initialControls.down, 50, 200) { value ->
-            updateControls { it.copy(down = value) }
-        }
-        percentSlider("Center dead zone", initialControls.deadZone, 0, 30) { value ->
-            updateControls { it.copy(deadZone = value) }
-        }
-        millisecondSlider("Key repeat interval", initialControls.repeatIntervalMs, MIN_KEY_REPEAT_MS, MAX_KEY_REPEAT_MS) { value ->
-            updateControls { it.copy(repeatIntervalMs = value) }
-        }
-        start = button("Start controller output") { service?.startOutput() }
-        row(start, button("Stop output") { service?.stopOutput() })
+        column.addView(modes)
+        controlsPanel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        column.addView(controlsPanel)
+        showControlSettings(initialMode, controlStore.controlsFor(initialMode))
         column.addView(button("Check Android controller input") {
-            service?.stopOutput(); startActivity(Intent(this, InputCheckActivity::class.java))
+            service?.pauseOutputForInputCheck(); startActivity(Intent(this, InputCheckActivity::class.java))
         })
         title("Calibration", 21)
         title("Calibrate each board before starting controller output. Hold each pose, tap its button, and stay steady for 3 seconds. Up means away from you.", 14)
@@ -111,27 +109,55 @@ class MainActivity : Activity() {
         Shizuku.addRequestPermissionResultListener(permissionResult)
         Shizuku.addBinderDeadListener(binderDead)
         bindService(Intent(this, BridgeService::class.java), connection, BIND_AUTO_CREATE)
-        showAccess()
+        ensureControllerAccess()
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3)
     }
-    override fun onResume() { super.onResume(); if (::access.isInitialized) showAccess() }
-    override fun onStart() { super.onStart(); service?.listener = ::render; service?.state?.let(::render) }
+    override fun onResume() { super.onResume(); if (::access.isInitialized) ensureControllerAccess() }
+    override fun onStart() {
+        super.onStart()
+        service?.listener = ::render
+        service?.state?.let(::render)
+        service?.ensureOutput()
+    }
     override fun onStop() { service?.listener = null; super.onStop() }
-    private fun title(text: String, size: Int) = TextView(this).apply {
+    private fun title(text: String, size: Int, parent: LinearLayout = column) = TextView(this).apply {
         this.text = text; textSize = size.toFloat(); setTextColor(Color.rgb(229, 239, 245)); setPadding(0, dp(8), 0, dp(8))
-        column.addView(this)
+        parent.addView(this)
     }
     private fun button(text: String, action: () -> Unit) = Button(this).apply { this.text = text; isAllCaps = false; setOnClickListener { action() } }
     private fun row(vararg views: View) { column.addView(LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; views.forEach { addView(it, LinearLayout.LayoutParams(0, -2, 1f)) }
     }) }
-    private fun percentSlider(label: String, initial: Double, minimum: Int, maximum: Int, onChange: (Double) -> Unit) =
-        integerSlider(label, (initial * 100).roundToInt(), minimum, maximum, "%") { onChange(it / 100.0) }
-    private fun millisecondSlider(label: String, initial: Int, minimum: Int, maximum: Int, onChange: (Int) -> Unit) =
-        integerSlider(label, initial, minimum, maximum, " ms", onChange)
-    private fun integerSlider(label: String, initial: Int, minimum: Int, maximum: Int, suffix: String, onChange: (Int) -> Unit) {
-        val value = title("", 14)
+    private fun showControlSettings(mode: Int, settings: ControlSettings) {
+        displayedControlMode = mode
+        displayedControls = settings
+        controlsPanel.removeAllViews()
+        title(if (mode == 0) "Analog stick sensitivity" else "Arrow-key sensitivity", 21, controlsPanel)
+        title("Higher sensitivity reaches full input with less tilt. The center dead zone suppresses movement near level.", 14, controlsPanel)
+        fun update(transform: (ControlSettings) -> ControlSettings) {
+            val updated = transform(displayedControls).normalized()
+            displayedControls = updated
+            CalibrationStore(this).saveControls(mode, updated)
+            service?.setControlSettings(updated)
+        }
+        percentSlider("Left sensitivity", settings.left, 50, 200, controlsPanel) { value -> update { it.copy(left = value) } }
+        percentSlider("Right sensitivity", settings.right, 50, 200, controlsPanel) { value -> update { it.copy(right = value) } }
+        percentSlider("Up / forward sensitivity", settings.up, 50, 200, controlsPanel) { value -> update { it.copy(up = value) } }
+        percentSlider("Down / backward sensitivity", settings.down, 50, 200, controlsPanel) { value -> update { it.copy(down = value) } }
+        percentSlider("Center dead zone", settings.deadZone, 0, 30, controlsPanel) { value -> update { it.copy(deadZone = value) } }
+        if (mode == 1) millisecondSlider("Key repeat interval", settings.repeatIntervalMs, MIN_KEY_REPEAT_MS,
+            MAX_KEY_REPEAT_MS, controlsPanel) { value -> update { it.copy(repeatIntervalMs = value) } }
+    }
+    private fun percentSlider(label: String, initial: Double, minimum: Int, maximum: Int, parent: LinearLayout = column,
+        onChange: (Double) -> Unit) = integerSlider(label, (initial * 100).roundToInt(), minimum, maximum, "%", parent) {
+            onChange(it / 100.0)
+        }
+    private fun millisecondSlider(label: String, initial: Int, minimum: Int, maximum: Int, parent: LinearLayout = column,
+        onChange: (Int) -> Unit) = integerSlider(label, initial, minimum, maximum, " ms", parent, onChange)
+    private fun integerSlider(label: String, initial: Int, minimum: Int, maximum: Int, suffix: String, parent: LinearLayout,
+        onChange: (Int) -> Unit) {
+        val value = title("", 14, parent)
         val slider = SeekBar(this).apply {
             max = maximum - minimum
             progress = initial.coerceIn(minimum, maximum) - minimum
@@ -146,7 +172,7 @@ class MainActivity : Activity() {
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
             override fun onStopTrackingTouch(seekBar: SeekBar) {}
         })
-        column.addView(slider)
+        parent.addView(slider)
     }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     private fun scan() {
@@ -160,20 +186,34 @@ class MainActivity : Activity() {
     private fun showAccess() {
         access.text = when {
             ControllerLink.available() -> "Controller access: allowed through Shizuku"
-            runCatching { Shizuku.pingBinder() }.getOrDefault(false) -> "Shizuku is running. Tap Allow controller access."
-            else -> "To send input to games, install and start Shizuku, then allow controller access. Live tilt works without it."
+            shizukuRequestPending -> "Requesting controller access through Shizuku…"
+            runCatching { Shizuku.pingBinder() }.getOrDefault(false) -> "Controller access is not allowed. Review WobblePad in Shizuku."
+            else -> "Start Shizuku to enable automatic controller output. Live tilt works without it."
         }
+    }
+    private fun ensureControllerAccess() {
+        val running = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
+        if (ControllerLink.available()) {
+            shizukuRequestPending = false
+            showAccess()
+            service?.ensureOutput()
+            return
+        }
+        if (!running || shizukuRequestPending || shizukuRequestAttempted) { showAccess(); return }
+        shizukuRequestAttempted = true
+        shizukuRequestPending = true
+        showAccess()
+        runCatching { Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST) }
+            .onFailure {
+                shizukuRequestPending = false
+                service?.message("Controller permission failed: ${it.message}")
+                showAccess()
+            }
     }
     private fun openShizuku() {
         val launch = packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
         if (launch != null) startActivity(launch)
         else startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://shizuku.rikka.app/download/")))
-    }
-    private fun requestShizuku() {
-        if (!runCatching { Shizuku.pingBinder() }.getOrDefault(false)) { service?.message("Open Shizuku setup and start it first."); return }
-        runCatching { if (!ControllerLink.available()) Shizuku.requestPermission(2) }
-            .onFailure { service?.message("Controller permission failed: ${it.message}") }
-        showAccess()
     }
     private fun render(state: BridgeState) {
         status.text = state.status
@@ -181,7 +221,7 @@ class MainActivity : Activity() {
         live.text = String.format(Locale.US, "X %+.2f   Y %+.2f\n%d packets/sec   •   Battery %s", state.stick.x, state.stick.y,
             state.rate, state.battery?.let { "$it%" } ?: "—")
         output.text = state.outputMessage
-        start.isEnabled = state.connected && state.calibrated && !state.output && state.capture == null
+        if (displayedControlMode != state.mode || displayedControls != state.controls) showControlSettings(state.mode, state.controls)
         poses.forEach { (pose, button) ->
             button.text = "Capture ${pose.name.lowercase()}" + (state.counts[pose]?.let { " ✓ ($it)" } ?: "")
             button.isEnabled = state.connected && state.capture == null
@@ -208,6 +248,10 @@ class MainActivity : Activity() {
         Shizuku.removeRequestPermissionResultListener(permissionResult)
         Shizuku.removeBinderDeadListener(binderDead)
         super.onDestroy()
+    }
+
+    private companion object {
+        const val SHIZUKU_PERMISSION_REQUEST = 2
     }
 }
 

@@ -36,24 +36,36 @@ class CalibrationStore(private val context: Context) {
     var mode: Int
         get() = prefs.getInt("mode", 0).coerceIn(0, 1)
         set(value) { prefs.edit().putInt("mode", value.coerceIn(0, 1)).apply() }
-    var controls: ControlSettings
-        get() = ControlSettings(
-            left = prefs.getFloat("sensitivity:left", 1f).toDouble(),
-            right = prefs.getFloat("sensitivity:right", 1f).toDouble(),
-            up = prefs.getFloat("sensitivity:up", 1f).toDouble(),
-            down = prefs.getFloat("sensitivity:down", 1f).toDouble(),
-            deadZone = prefs.getFloat("dead-zone", 0.08f).toDouble(),
-            repeatIntervalMs = prefs.getInt("key-repeat-ms", DEFAULT_KEY_REPEAT_MS),
+    fun controlsFor(mode: Int): ControlSettings {
+        val prefix = "controls:${mode.coerceIn(0, 1)}"
+        fun float(name: String, legacy: String, default: Float) =
+            if (prefs.contains("$prefix:$name")) prefs.getFloat("$prefix:$name", default)
+            else prefs.getFloat(legacy, default)
+        fun int(name: String, legacy: String, default: Int) =
+            if (prefs.contains("$prefix:$name")) prefs.getInt("$prefix:$name", default)
+            else prefs.getInt(legacy, default)
+        return ControlSettings(
+            left = float("left", "sensitivity:left", 1f).toDouble(),
+            right = float("right", "sensitivity:right", 1f).toDouble(),
+            up = float("up", "sensitivity:up", 1f).toDouble(),
+            down = float("down", "sensitivity:down", 1f).toDouble(),
+            deadZone = float("dead-zone", "dead-zone", 0.08f).toDouble(),
+            repeatIntervalMs = int("key-repeat-ms", "key-repeat-ms", DEFAULT_KEY_REPEAT_MS),
         ).normalized()
-        set(value) {
-            val normalized = value.normalized()
-            prefs.edit()
-                .putFloat("sensitivity:left", normalized.left.toFloat())
-                .putFloat("sensitivity:right", normalized.right.toFloat())
-                .putFloat("sensitivity:up", normalized.up.toFloat())
-                .putFloat("sensitivity:down", normalized.down.toFloat())
-                .putFloat("dead-zone", normalized.deadZone.toFloat())
-                .putInt("key-repeat-ms", normalized.repeatIntervalMs)
-                .apply()
-        }
+    }
+    fun saveControls(mode: Int, value: ControlSettings) {
+        val prefix = "controls:${mode.coerceIn(0, 1)}"
+        val normalized = value.normalized()
+        prefs.edit()
+            .putFloat("$prefix:left", normalized.left.toFloat())
+            .putFloat("$prefix:right", normalized.right.toFloat())
+            .putFloat("$prefix:up", normalized.up.toFloat())
+            .putFloat("$prefix:down", normalized.down.toFloat())
+            .putFloat("$prefix:dead-zone", normalized.deadZone.toFloat())
+            .putInt("$prefix:key-repeat-ms", normalized.repeatIntervalMs)
+            .apply()
+    }
+    var controls: ControlSettings
+        get() = controlsFor(mode)
+        set(value) { saveControls(mode, value) }
 }

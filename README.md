@@ -151,10 +151,14 @@ the hardware checks that remain manual.
 4. Capture `CENTER`, `LEFT`, `RIGHT`, `UP`, and `DOWN`. `UP` means away from
    you. Hold each pose steady for three seconds.
 5. Finish calibration and verify the live dot follows the board.
-6. For controller output, start Shizuku, grant WobblePad access, and choose
-   analog stick or arrow keys. Automatic discovery starts output for you; the
-   manual start button remains available after calibration or access changes.
-7. Open a controller-compatible app. Return to WobblePad or use its foreground
+6. Start Shizuku and choose analog stick or arrow keys. WobblePad requests
+   controller access when necessary and keeps controller output running while
+   the board is connected. Changing modes recreates the virtual controller
+   automatically.
+7. Adjust the displayed sensitivity profile. Analog stick and arrow-key modes
+   retain separate directional sensitivity and center-dead-zone settings;
+   arrow-key mode also provides a repeat interval for held directions.
+8. Open a controller-compatible app. Return to WobblePad or use its foreground
    notification to stop the bridge.
 
 Calibration is stored locally and keyed to the board's Bluetooth address. It is
