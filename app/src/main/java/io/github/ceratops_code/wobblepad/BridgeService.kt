@@ -9,6 +9,7 @@ import android.content.*
 import android.content.pm.PackageManager
 import android.os.*
 import android.util.Log
+import android.widget.Toast
 import no.nordicsemi.android.ble.observer.ConnectionObserver
 import org.json.JSONObject
 import java.io.FileDescriptor
@@ -59,6 +60,7 @@ class BridgeService : Service() {
     private var wantOutput = false
     private var autoDiscover = false
     private var autoOutputPending = false
+    private var controllerReadyToastShown = false
     private val packetTimes = ArrayDeque<Long>()
     private val csv = ArrayDeque<String>()
     @Volatile var state = BridgeState(); private set
@@ -72,6 +74,7 @@ class BridgeService : Service() {
         controller = ControllerLink(this) { ready, message ->
             if (!ready && !controller.binding) wantOutput = false
             state = state.copy(output = ready && wantOutput, outputMessage = message)
+            showControllerReadyToast()
             publish()
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -97,6 +100,12 @@ class BridgeService : Service() {
     private fun permissions() = checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
         checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
     private fun publish() { listener?.invoke(state) }
+    private fun showControllerReadyToast() {
+        val packetIsLive = lastPacket > 0 && SystemClock.elapsedRealtime() - lastPacket <= 1000
+        if (controllerReadyToastShown || !state.connected || !state.output || !packetIsLive) return
+        controllerReadyToastShown = true
+        Toast.makeText(applicationContext, "BoBo connected — controller active", Toast.LENGTH_SHORT).show()
+    }
     fun message(text: String) {
         messageUntil = SystemClock.elapsedRealtime() + 6000
         state = state.copy(status = text); Log.i("WobblePad", text); publish()
@@ -191,7 +200,7 @@ class BridgeService : Service() {
     private fun connectAttempt() {
         val address = state.address ?: return
         val token = ++generation
-        lastPacket = 0; readyAt = 0; stablePackets = 0; packetTimes.clear()
+        lastPacket = 0; readyAt = 0; stablePackets = 0; packetTimes.clear(); controllerReadyToastShown = false
         message(if (reconnects == 0) "Connecting to BoBo…" else "Reconnecting to BoBo ($reconnects/3)…")
         try {
             val client = BalanceBoardBLEManager(this, { bytes -> if (token == generation) onPacket(bytes) },
@@ -252,7 +261,7 @@ class BridgeService : Service() {
     fun disconnect() {
         autoDiscover = false; autoOutputPending = false; handler.removeCallbacks(scanAgain)
         ++generation; stopScan(); stopOutput(); cancelCapture(); retireClient()
-        lastPacket = 0; readyAt = 0; mapper?.reset()
+        lastPacket = 0; readyAt = 0; controllerReadyToastShown = false; mapper?.reset()
         state = state.copy(address = null, connected = false, stick = Stick(), rate = 0, status = "Disconnected")
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); publish()
     }
@@ -279,6 +288,7 @@ class BridgeService : Service() {
             hex = bytes.joinToString("-") { "%02X".format(it.toInt() and 255) }, stick = stick,
             status = if (pendingPose != null) "Hold ${pendingPose!!.name.lowercase()}: ${pendingSamples.size} packets"
                 else if (now < messageUntil) state.status else "Receiving BoBo tilt")
+        showControllerReadyToast()
     }
     private val tick = object : Runnable {
         override fun run() {
