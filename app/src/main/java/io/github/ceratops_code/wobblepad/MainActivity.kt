@@ -49,7 +49,7 @@ class MainActivity : Activity() {
         title("Turn your balance board into an Android gamepad.", 15)
         title("Unofficial controller bridge compatible with BoBo Wobbly. Not affiliated with BO&BO Ltd.", 12)
         status = title("Starting…", 17)
-        row(button("Scan for BoBo") { scan() }, button("Disconnect") { service?.disconnect() })
+        row(button("Scan & auto-connect") { scan() }, button("Disconnect") { service?.disconnect() })
         boards = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }; column.addView(boards)
         plot = StickView(this); column.addView(plot, LinearLayout.LayoutParams(-1, dp(210)))
         live = title("X 0.00   Y 0.00", 19)

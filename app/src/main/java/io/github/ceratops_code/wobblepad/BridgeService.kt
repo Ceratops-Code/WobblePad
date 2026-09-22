@@ -57,6 +57,8 @@ class BridgeService : Service() {
     private var mapper: JoystickMapper? = null
     private val keyRepeater = KeyPulseRepeater()
     private var wantOutput = false
+    private var autoDiscover = false
+    private var autoOutputPending = false
     private val packetTimes = ArrayDeque<Long>()
     private val csv = ArrayDeque<String>()
     @Volatile var state = BridgeState(); private set
@@ -110,32 +112,70 @@ class BridgeService : Service() {
                 state = state.copy(boards = state.boards + Board(result.device.address, name.ifBlank { "BoBo" }))
                 publish()
             }
+            if (autoDiscover) {
+                stopScan()
+                message("BoBo found. Connecting automatically…")
+                connect(result.device.address, automatic = true)
+            }
         }
-        override fun onScanFailed(errorCode: Int) { stopScan(); message("Bluetooth scan failed ($errorCode). Check Bluetooth and try again.") }
+        override fun onScanFailed(errorCode: Int) {
+            stopScan()
+            if (autoDiscover) {
+                message("Bluetooth scan paused ($errorCode). Retrying automatically…")
+                handler.postDelayed(scanAgain, SCAN_RETRY_MS)
+            } else message("Bluetooth scan failed ($errorCode). Check Bluetooth and try again.")
+        }
     }
     fun scan() {
         if (!permissions()) { message("Allow Nearby Devices to find BoBo."); return }
         if (adapter?.isEnabled != true) { message("Turn on Bluetooth, then scan again."); return }
+        autoDiscover = true
+        autoOutputPending = true
+        keepRunning()
+        startScanCycle()
+    }
+    private fun startScanCycle() {
+        if (!autoDiscover || !permissions() || state.connected) return
+        if (adapter?.isEnabled != true) {
+            message("Bluetooth is off. Waiting for it to turn on…")
+            handler.postDelayed(scanAgain, SCAN_RETRY_MS)
+            return
+        }
+        handler.removeCallbacks(scanAgain)
         stopScan()
         state = state.copy(scanning = true, boards = emptyList(), status = "Looking for BoBo…")
         try {
             scanner = adapter.bluetoothLeScanner
             scanner?.startScan(null, ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(), scanCallback)
             handler.postDelayed(scanEnd, 10000)
-        } catch (e: Exception) { stopScan(); message("Could not scan: ${e.message}") }
+        } catch (e: Exception) {
+            stopScan(); message("Could not scan: ${e.message}. Retrying automatically…")
+            handler.postDelayed(scanAgain, SCAN_RETRY_MS)
+        }
         publish()
     }
-    private val scanEnd = Runnable { stopScan(); message(if (state.boards.isEmpty()) "No BoBo found. Keep it awake and disconnect other BoBo apps." else "Choose your BoBo below.") }
+    private val scanAgain = Runnable { startScanCycle() }
+    private val scanEnd = Runnable {
+        stopScan()
+        if (autoDiscover) {
+            message("BoBo is not visible yet. Watching for it…")
+            handler.postDelayed(scanAgain, SCAN_RETRY_MS)
+        } else message("No BoBo found. Keep it awake and disconnect other BoBo apps.")
+    }
     private fun stopScan() {
         handler.removeCallbacks(scanEnd)
         runCatching { scanner?.stopScan(scanCallback) }; scanner = null
         state = state.copy(scanning = false)
     }
-    fun connect(address: String) {
+    fun connect(address: String, automatic: Boolean = false) {
         if (!permissions()) { message("Allow Nearby Devices first."); return }
         if (adapter?.isEnabled != true) { message("Turn on Bluetooth first."); return }
         val keepCalibration = address.equals(samplesAddress, ignoreCase = true)
-        disconnect()
+        if (!automatic) autoDiscover = false
+        handler.removeCallbacks(scanAgain)
+        ++generation; stopScan(); stopOutput(); cancelCapture(); retireClient()
+        lastPacket = 0; readyAt = 0; mapper?.reset()
+        autoOutputPending = automatic
         keepRunning()
         if (!keepCalibration) {
             samples.clear(); mapper = null; samplesAddress = address
@@ -197,6 +237,12 @@ class BridgeService : Service() {
             if (token == generation && state.address != null) {
                 if (++reconnects <= 3 && permissions() && adapter?.isEnabled == true) {
                     handler.postDelayed({ if (token == generation) connectAttempt() }, 500)
+                } else if (autoDiscover) {
+                    reconnects = 0
+                    autoOutputPending = !wantOutput
+                    state = state.copy(address = null, connected = false, stick = Stick(), rate = 0)
+                    message("$reason. Watching for BoBo to return…")
+                    handler.postDelayed(scanAgain, SCAN_RETRY_MS)
                 } else {
                     stopOutput(); message("$reason. Reconnect stopped. Check BoBo is on, tap Scan for BoBo, then connect.")
                 }
@@ -204,6 +250,7 @@ class BridgeService : Service() {
         }
     }
     fun disconnect() {
+        autoDiscover = false; autoOutputPending = false; handler.removeCallbacks(scanAgain)
         ++generation; stopScan(); stopOutput(); cancelCapture(); retireClient()
         lastPacket = 0; readyAt = 0; mapper?.reset()
         state = state.copy(address = null, connected = false, stick = Stick(), rate = 0, status = "Disconnected")
@@ -215,6 +262,10 @@ class BridgeService : Service() {
         val now = SystemClock.elapsedRealtime()
         lastPacket = now; packetTimes.addLast(now)
         if (++stablePackets >= 100) reconnects = 0
+        if (autoOutputPending && state.connected && mapper != null && pendingPose == null) {
+            autoOutputPending = false
+            startOutput()
+        }
         pendingPose?.let { if (pendingSamples.size < 500) pendingSamples.add(raw) }
         val stick = if (pendingPose == null) mapper?.update(raw) ?: Stick() else Stick()
         if (wantOutput) {
@@ -283,10 +334,12 @@ class BridgeService : Service() {
         if (!state.connected || mapper == null || pendingPose != null || SystemClock.elapsedRealtime() - lastPacket > 1000) {
             message("Connect BoBo and finish calibration before starting output."); return
         }
+        autoOutputPending = false
         wantOutput = true; mapper?.reset(); keyRepeater.reset()
         runCatching { controller.start(state.mode) }.onFailure { wantOutput = false; message(it.message ?: "Controller access failed") }
     }
     fun stopOutput() {
+        autoOutputPending = false
         wantOutput = false
         keyRepeater.reset()
         if (::controller.isInitialized) controller.stop()
@@ -301,6 +354,7 @@ class BridgeService : Service() {
             .put("packets", s.packets).put("rejected", s.rejected).put("rate", s.rate).put("battery", s.battery)
             .put("raw", s.raw).put("hex", s.hex).put("x", s.stick.x).put("y", s.stick.y).put("keys", s.stick.keys)
             .put("output", s.output).put("mode", s.mode).put("outputMessage", s.outputMessage)
+            .put("autoDiscover", autoDiscover).put("autoOutputPending", autoOutputPending)
             .put("reconnects", reconnects).put("lastPacketAgeMs", if (lastPacket == 0L) -1 else SystemClock.elapsedRealtime() - lastPacket))
     }
     override fun onDestroy() {
@@ -308,5 +362,9 @@ class BridgeService : Service() {
         retiringClients.forEach { it.close() }; retiringClients.clear()
         handler.removeCallbacksAndMessages(null); listener = null
         super.onDestroy()
+    }
+
+    private companion object {
+        const val SCAN_RETRY_MS = 2500L
     }
 }

@@ -144,12 +144,16 @@ the hardware checks that remain manual.
 
 1. Power on the board and keep it awake.
 2. Open WobblePad and allow Nearby devices and notification permissions.
-3. Tap **Scan for BoBo**, then select the detected board.
+3. Tap **Scan & auto-connect** once. WobblePad keeps watching in its foreground
+   service, connects when the board appears, and starts controller output after
+   live packets arrive when calibration and Shizuku access are ready. Tap
+   **Disconnect** or stop the notification to end automatic discovery.
 4. Capture `CENTER`, `LEFT`, `RIGHT`, `UP`, and `DOWN`. `UP` means away from
    you. Hold each pose steady for three seconds.
 5. Finish calibration and verify the live dot follows the board.
-6. For controller output, start Shizuku, grant WobblePad access, choose analog
-   stick or arrow keys, and tap **Start controller output**.
+6. For controller output, start Shizuku, grant WobblePad access, and choose
+   analog stick or arrow keys. Automatic discovery starts output for you; the
+   manual start button remains available after calibration or access changes.
 7. Open a controller-compatible app. Return to WobblePad or use its foreground
    notification to stop the bridge.
 
