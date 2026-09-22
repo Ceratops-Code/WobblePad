@@ -1,7 +1,7 @@
 {
   "cases": [
     {
-      "id": "test_keyboard.ArrowKeyEmitterTests.test_emits_only_transitions_and_releases_every_key",
+      "id": "test_keyboard.ArrowKeyEmitterTests.test_changed_repeat_interval_controls_the_next_pulse",
       "status": "passed"
     },
     {
@@ -10,6 +10,10 @@
     },
     {
       "id": "test_keyboard.ArrowKeyEmitterTests.test_release_attempts_every_held_key_after_sender_failure",
+      "status": "passed"
+    },
+    {
+      "id": "test_keyboard.ArrowKeyEmitterTests.test_repeats_held_keys_without_returning_to_center",
       "status": "passed"
     },
     {
@@ -53,15 +57,15 @@
   "group": "windows-python",
   "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "7e819960bab91d72ea3423bbb7ea054fc6ccc2178465b430f1a90ab02d5fd895",
-    "sourceCommit": "cc9e08bcf4aec6bbc0f88273aeb4c91d94e8800e"
+    "contentSha256": "25929cbc6ec17a3b559dde6910e1acb1dc4fda254b982872ecfbc2b25853fcb1",
+    "sourceCommit": "94fdd41705d0dd5aa891143b9a207714116261ad"
   },
   "stage": "tests",
   "status": "passed",
   "summary": {
     "failed": 0,
-    "passed": 10,
+    "passed": 11,
     "skipped": 0,
-    "total": 10
+    "total": 11
   }
 }

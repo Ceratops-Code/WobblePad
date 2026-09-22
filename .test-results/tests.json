@@ -3,26 +3,26 @@
     {
       "id": "repository-scripts",
       "path": ".test-results/groups/repository-scripts.json",
-      "sha256": "1a7d1dcba4f97392465c3f068cf510a913f9c4e03d487e06fdf58392a144412f",
+      "sha256": "fa96dec838d845b63819f87ca7f3cd2961c3b9e142d8debe423bdcedcc18c0d5",
       "status": "passed"
     },
     {
       "id": "android-jvm",
       "path": ".test-results/groups/android-jvm.json",
-      "sha256": "36b7b4dc3469c85592a1cd64e71220746bdda1ba2df1e96bb6e157b1088f44fc",
+      "sha256": "cb789724d47408d199aa72f8c28767410f7a17adb93393dbdf70388cc79600c5",
       "status": "passed"
     },
     {
       "id": "windows-python",
       "path": ".test-results/groups/windows-python.json",
-      "sha256": "487657b0ecf878278d910ba60ab2a949d19963bfefe7e6523e7bed7240e099de",
+      "sha256": "561f31639041c57f1bf0ef5b32f7f998a956a266d280d948416514948dc1f140",
       "status": "passed"
     }
   ],
   "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "7e819960bab91d72ea3423bbb7ea054fc6ccc2178465b430f1a90ab02d5fd895",
-    "sourceCommit": "cc9e08bcf4aec6bbc0f88273aeb4c91d94e8800e"
+    "contentSha256": "25929cbc6ec17a3b559dde6910e1acb1dc4fda254b982872ecfbc2b25853fcb1",
+    "sourceCommit": "94fdd41705d0dd5aa891143b9a207714116261ad"
   },
   "stage": "tests",
   "status": "passed"

@@ -21,11 +21,19 @@
       "status": "passed"
     },
     {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.heldDirectionProducesConfigurableRepeatedKeyPulses",
+      "status": "passed"
+    },
+    {
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.keyHysteresisPreventsThresholdChatter",
       "status": "passed"
     },
     {
       "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.radialDeadZoneSuppressesNoiseAndRescalesMovement",
+      "status": "passed"
+    },
+    {
+      "id": "io.github.ceratops_code.wobblepad.JoystickMapperTest.repeatIntervalIsBoundedWithTheOtherControls",
       "status": "passed"
     },
     {
@@ -55,15 +63,15 @@
   "group": "android-jvm",
   "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "7e819960bab91d72ea3423bbb7ea054fc6ccc2178465b430f1a90ab02d5fd895",
-    "sourceCommit": "cc9e08bcf4aec6bbc0f88273aeb4c91d94e8800e"
+    "contentSha256": "25929cbc6ec17a3b559dde6910e1acb1dc4fda254b982872ecfbc2b25853fcb1",
+    "sourceCommit": "94fdd41705d0dd5aa891143b9a207714116261ad"
   },
   "stage": "tests",
   "status": "passed",
   "summary": {
     "failed": 0,
-    "passed": 11,
+    "passed": 13,
     "skipped": 0,
-    "total": 11
+    "total": 13
   }
 }
