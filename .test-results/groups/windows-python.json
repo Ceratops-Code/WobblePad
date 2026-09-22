@@ -5,6 +5,10 @@
       "status": "passed"
     },
     {
+      "id": "test_keyboard.ArrowKeyEmitterTests.test_input_matches_the_win32_abi_size",
+      "status": "passed"
+    },
+    {
       "id": "test_model.MapperTests.test_collinear_calibration_is_rejected",
       "status": "passed"
     },
@@ -45,15 +49,15 @@
   "group": "windows-python",
   "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "3e43cbd21ff1f974f6f1590c01d413aa9414ec8fbf6717a44f72c1066f988bbf",
-    "sourceCommit": "90ce5046ac29c202b85752f73ecd95e9ec8f9983"
+    "contentSha256": "992342b5d9210bd98b30e696831c72a9929fffc52369c8a3ad12ceb6f61f7a30",
+    "sourceCommit": "cd43d6f9c0387aecd42ce1d6981c245844058b0d"
   },
   "stage": "tests",
   "status": "passed",
   "summary": {
     "failed": 0,
-    "passed": 8,
+    "passed": 9,
     "skipped": 0,
-    "total": 8
+    "total": 9
   }
 }
