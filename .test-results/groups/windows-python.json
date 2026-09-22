@@ -38,7 +38,7 @@
     }
   ],
   "command": [
-    "C:\\CodexProjects\\worktrees\\WobblePad\\multiplatform-wobblepad\\scripts\\.venv\\Scripts\\python.exe",
+    "python",
     "-m",
     "unittest",
     "discover",
@@ -49,8 +49,8 @@
   "group": "windows-python",
   "schema": "ceratops-repository-stage-result.v1",
   "source": {
-    "contentSha256": "992342b5d9210bd98b30e696831c72a9929fffc52369c8a3ad12ceb6f61f7a30",
-    "sourceCommit": "cd43d6f9c0387aecd42ce1d6981c245844058b0d"
+    "contentSha256": "bd9c8f6a7dbe9ebe3c3c546ebe8c8dac8a39b84d7d5cefba9d4ce99ed964e512",
+    "sourceCommit": "f44d2a4f3c7b6efb8d25179c7ed6353c1c233e53"
   },
   "stage": "tests",
   "status": "passed",
