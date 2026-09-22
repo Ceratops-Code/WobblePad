@@ -70,6 +70,7 @@ class BridgeService : Service() {
     private val csv = ArrayDeque<String>()
     @Volatile var state = BridgeState(); private set
     var listener: ((BridgeState) -> Unit)? = null
+    var toastListener: ((String) -> Unit)? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -137,6 +138,10 @@ class BridgeService : Service() {
     }
     private fun showToast(text: String) {
         handler.post {
+            toastListener?.let { listener ->
+                listener(text)
+                return@post
+            }
             val toast = Toast.makeText(applicationContext, text, Toast.LENGTH_SHORT)
             toast.addCallback(object : Toast.Callback() {
                 override fun onToastShown() { Log.i("WobblePad", "Connection feedback shown: $text") }
@@ -186,6 +191,14 @@ class BridgeService : Service() {
         autoOutputPending = true
         keepRunning()
         startScanCycle()
+    }
+    fun ensureAutoDiscovery() {
+        if (!permissions()) { message("Allow Nearby Devices to find BoBo."); return }
+        if (adapter?.isEnabled != true) { message("Turn on Bluetooth, then scan again."); return }
+        autoDiscover = true
+        autoOutputPending = true
+        keepRunning()
+        if (!state.connected && !state.scanning && state.address == null) startScanCycle()
     }
     private fun startScanCycle() {
         if (!autoDiscover || !permissions() || state.connected) return
@@ -483,7 +496,7 @@ class BridgeService : Service() {
     override fun onDestroy() {
         ++generation; stopScan(); controller.shutdown(); manager?.close(); manager = null
         retiringClients.forEach { it.close() }; retiringClients.clear()
-        handler.removeCallbacksAndMessages(null); listener = null
+        handler.removeCallbacksAndMessages(null); listener = null; toastListener = null
         super.onDestroy()
     }
 
