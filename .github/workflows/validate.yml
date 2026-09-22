@@ -62,4 +62,6 @@ jobs:
           if-no-files-found: ignore
           name: repository-validation-evidence
           include-hidden-files: true
-          path: ${{ runner.temp }}/sdlc-validation.json
+          path: |
+            ${{ runner.temp }}/sdlc-validation.json
+            .test-results/evidence/validation.log

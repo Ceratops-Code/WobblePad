@@ -61,7 +61,8 @@ def send_key(virtual_key: int, pressed: bool) -> None:
     event = INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(virtual_key, 0, 0 if pressed else KEYEVENTF_KEYUP, 0, 0))
     sent = ctypes.windll.user32.SendInput(1, ctypes.byref(event), ctypes.sizeof(INPUT))  # type: ignore[attr-defined]
     if sent != 1:
-        raise ctypes.WinError()
+        win_error = ctypes.__dict__["WinError"]
+        raise win_error()
 
 
 class ArrowKeyEmitter:

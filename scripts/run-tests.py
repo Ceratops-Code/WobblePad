@@ -9,6 +9,7 @@ records are tracked; complete command output stays in ignored evidence files.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 import pathlib
@@ -52,7 +53,7 @@ def gradle_environment() -> dict[str, str]:
     if os.name != "nt":
         return environment
 
-    import winreg
+    winreg: Any = importlib.import_module("winreg")
 
     locations = (
         (winreg.HKEY_CURRENT_USER, r"Environment"),
