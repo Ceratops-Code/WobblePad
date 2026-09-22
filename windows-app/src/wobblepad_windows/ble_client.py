@@ -8,7 +8,11 @@ from typing import Callable
 
 from bleak import BleakClient, BleakScanner
 
-from wobblepad_windows.model import BATTERY_LEVEL_UUID, CHARACTERISTIC_UUID, SERVICE_UUID
+from wobblepad_windows.model import (
+    BATTERY_LEVEL_UUID,
+    CHARACTERISTIC_UUID,
+    SERVICE_UUID,
+)
 
 BATTERY_REFRESH_SECONDS = 60.0
 
