@@ -87,9 +87,15 @@ class ArrowKeyEmitter:
                 self._pressed |= bit
 
     def release_all(self) -> None:
+        first_error: Exception | None = None
         for bit, virtual_key in KEYS.items():
             if self._pressed & bit:
                 try:
                     self._sender(virtual_key, False)
+                except Exception as error:
+                    if first_error is None:
+                        first_error = error
                 finally:
                     self._pressed &= ~bit
+        if first_error is not None:
+            raise first_error

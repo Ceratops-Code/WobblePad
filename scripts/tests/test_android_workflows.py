@@ -7,6 +7,7 @@ import importlib.util
 import io
 import json
 import pathlib
+import sys
 import tempfile
 import types
 import unittest
@@ -48,10 +49,17 @@ class BuildAndroidTests(unittest.TestCase):
             executable.write_text("fixture", encoding="utf-8")
             key = mock.MagicMock()
             key.__enter__.return_value = key
+            fake_winreg: Any = types.ModuleType("winreg")
+            fake_winreg.HKEY_CURRENT_USER = object()
+            fake_winreg.HKEY_LOCAL_MACHINE = object()
+            fake_winreg.OpenKey = mock.MagicMock(return_value=key)
+            fake_winreg.QueryValueEx = mock.MagicMock(
+                return_value=(str(java_home), 1)
+            )
             with (
                 mock.patch.dict(BUILD.os.environ, {"JAVA_HOME": "Z:\\missing"}),
-                mock.patch("winreg.OpenKey", return_value=key),
-                mock.patch("winreg.QueryValueEx", return_value=(str(java_home), 1)),
+                mock.patch.object(BUILD.os, "name", "nt"),
+                mock.patch.dict(sys.modules, {"winreg": fake_winreg}),
             ):
                 for module in (BUILD, RUN_TESTS, VALIDATE):
                     with self.subTest(module=module.__name__):

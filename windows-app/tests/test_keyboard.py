@@ -34,6 +34,26 @@ class ArrowKeyEmitterTests(unittest.TestCase):
         )
         self.assertEqual(emitter.pressed, 0)
 
+    def test_release_attempts_every_held_key_after_sender_failure(self) -> None:
+        events: list[tuple[int, bool]] = []
+
+        def sender(key: int, pressed: bool) -> None:
+            events.append((key, pressed))
+            if key == 0x25 and not pressed:
+                raise OSError("release failed")
+
+        emitter = ArrowKeyEmitter(sender)
+        emitter.update(1 | 2)
+
+        with self.assertRaisesRegex(OSError, "release failed"):
+            emitter.release_all()
+
+        self.assertEqual(
+            events,
+            [(0x25, True), (0x27, True), (0x25, False), (0x27, False)],
+        )
+        self.assertEqual(emitter.pressed, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
