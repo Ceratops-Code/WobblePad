@@ -32,6 +32,7 @@ class MainActivity : Activity() {
     private var displayedControls = ControlSettings()
     private var shizukuRequestPending = false
     private var shizukuRequestAttempted = false
+    private var startOnServiceConnection = true
     private var saveText = ""
     private val permissions = arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
     private val binderReceived = Shizuku.OnBinderReceivedListener { runOnUiThread { ensureControllerAccess() } }
@@ -55,12 +56,16 @@ class MainActivity : Activity() {
             service?.state?.let(::render)
             ensureControllerAccess()
             service?.ensureOutput()
-            startAutomatically()
+            if (startOnServiceConnection) {
+                startOnServiceConnection = false
+                startAutomatically()
+            }
         }
         override fun onServiceDisconnected(name: ComponentName) { service = null }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        startOnServiceConnection = savedInstanceState == null
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val scroll = ScrollView(this).apply { setBackgroundColor(Color.rgb(14, 23, 39)); isFillViewport = true }
         column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(30), dp(20), dp(32)) }
