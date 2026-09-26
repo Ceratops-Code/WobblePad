@@ -6,6 +6,7 @@ import android.content.*
 import android.content.pm.PackageManager
 import android.graphics.*
 import android.os.*
+import android.util.Log
 import android.view.*
 import android.widget.*
 import rikka.shizuku.Shizuku
@@ -31,6 +32,7 @@ class MainActivity : Activity() {
     private var displayedControls = ControlSettings()
     private var shizukuRequestPending = false
     private var shizukuRequestAttempted = false
+    private var startOnServiceConnection = true
     private var saveText = ""
     private val permissions = arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
     private val binderReceived = Shizuku.OnBinderReceivedListener { runOnUiThread { ensureControllerAccess() } }
@@ -50,14 +52,20 @@ class MainActivity : Activity() {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             service = (binder as BridgeService.LocalBinder).service
             service?.listener = ::render
+            service?.toastListener = ::showConnectionToast
             service?.state?.let(::render)
             ensureControllerAccess()
             service?.ensureOutput()
+            if (startOnServiceConnection) {
+                startOnServiceConnection = false
+                startAutomatically()
+            }
         }
         override fun onServiceDisconnected(name: ComponentName) { service = null }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        startOnServiceConnection = savedInstanceState == null
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val scroll = ScrollView(this).apply { setBackgroundColor(Color.rgb(14, 23, 39)); isFillViewport = true }
         column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(30), dp(20), dp(32)) }
@@ -113,17 +121,16 @@ class MainActivity : Activity() {
         Shizuku.addBinderDeadListener(binderDead)
         bindService(Intent(this, BridgeService::class.java), connection, BIND_AUTO_CREATE)
         ensureControllerAccess()
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3)
     }
     override fun onResume() { super.onResume(); if (::access.isInitialized) ensureControllerAccess() }
     override fun onStart() {
         super.onStart()
         service?.listener = ::render
+        service?.toastListener = ::showConnectionToast
         service?.state?.let(::render)
         service?.ensureOutput()
     }
-    override fun onStop() { service?.listener = null; super.onStop() }
+    override fun onStop() { service?.listener = null; service?.toastListener = null; super.onStop() }
     private fun title(text: String, size: Int, parent: LinearLayout = column) = TextView(this).apply {
         this.text = text; textSize = size.toFloat(); setTextColor(Color.rgb(229, 239, 245)); setPadding(0, dp(8), 0, dp(8))
         parent.addView(this)
@@ -195,9 +202,31 @@ class MainActivity : Activity() {
         if (permissions.any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }) requestPermissions(permissions, 1)
         else service?.scan()
     }
+    private fun startAutomatically() {
+        if (permissions.any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }) {
+            requestPermissions(permissions, 1)
+            return
+        }
+        service?.ensureAutoDiscovery()
+        requestNotificationPermission()
+    }
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3)
+    }
+    private fun showConnectionToast(text: String) {
+        val toast = Toast.makeText(this, text, Toast.LENGTH_SHORT)
+        toast.addCallback(object : Toast.Callback() {
+            override fun onToastShown() { Log.i("WobblePad", "Connection feedback shown in activity: $text") }
+        })
+        toast.show()
+    }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1 && grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) service?.scan()
+        if (requestCode == 1 && grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            service?.scan()
+            requestNotificationPermission()
+        }
     }
     private fun showAccess() {
         access.text = when {
@@ -262,7 +291,7 @@ class MainActivity : Activity() {
         saveText = ""
     }
     override fun onDestroy() {
-        service?.listener = null; unbindService(connection)
+        service?.listener = null; service?.toastListener = null; unbindService(connection)
         Shizuku.removeBinderReceivedListener(binderReceived)
         Shizuku.removeRequestPermissionResultListener(permissionResult)
         Shizuku.removeBinderDeadListener(binderDead)

@@ -146,10 +146,11 @@ the hardware checks that remain manual.
 
 1. Power on the board and keep it awake.
 2. Open WobblePad and allow Nearby devices and notification permissions.
-3. Tap **Scan & auto-connect** once. WobblePad keeps watching in its foreground
-   service, connects when the board appears, and starts controller output after
-   live packets arrive when calibration and Shizuku access are ready. Tap
-   **Disconnect** or stop the notification to end automatic discovery.
+3. WobblePad starts scanning automatically when its screen opens. It keeps
+   watching in its foreground service, connects when the board appears, shows a
+   short connection message, and starts controller output after live packets
+   arrive when calibration and Shizuku access are ready. Tap **Disconnect** or
+   stop the notification to end automatic discovery.
 4. Capture `CENTER`, `LEFT`, `RIGHT`, `UP`, and `DOWN`. `UP` means away from
    you. Hold each pose steady for three seconds.
 5. Finish calibration and verify the live dot follows the board.
